@@ -13,6 +13,7 @@ from sklearn.cluster import KMeans
 import hdbscan
 import copy
 import utils
+import heirichalFL as hfl
 
 # Copyright (c) 2015, Leland McInnes
 # All rights reserved.
@@ -28,6 +29,65 @@ import utils
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Available at: https://github.com/scikit-learn-contrib/hdbscan
+import torch
+import numpy as np
+from functools import reduce
+
+def divide_and_conquer_bb_probs(gradients, net, lr, f, byz, device,
+                                niters, c, b,
+                                alpha=1.0, beta=1.0):
+    """
+    Divide-and-conquer aggregation + Beta-Binomial maliciousness probabilities.
+
+    Returns:
+      p_malicious: list of length n_clients with values in [0,1]
+    """
+    # 1) flatten gradients
+    param_list = [torch.cat([xx.reshape(-1) for xx in x])[:, None]
+                  for x in gradients]
+    # let the malicious clients perform the byzantine attack
+    param_list = byz(param_list, net, lr, f, device)
+    
+    n = len(param_list)
+    survive_counts = np.zeros(n, dtype=int)
+    
+    D = param_list[0].shape[0]
+    
+    # 2) collect survive counts over random subspace tests
+    for _ in range(niters):
+        # random dimension d in [1, b)
+        d = np.random.randint(1, high=b)
+        # random mask of size D picking d coords
+        idx = torch.randperm(D, device=device)[:d]
+        sel = [p[idx] for p in param_list]            # each is (d,1)
+        
+        stacked = torch.cat(sel, dim=1)               # (d, n)
+        mean   = stacked.mean(dim=1, keepdim=True)    # (d,1)
+        centered = (stacked - mean).T                 # (n, d)
+        
+        # top right singular vector
+        _, _, Vt = torch.linalg.svd(centered, full_matrices=False)
+        top_vec = Vt[0]                               # (d,)
+        
+        # outlier scores = squared projection
+        scores = (centered @ top_vec).cpu().numpy()**2
+        
+        # pick the lowest (n - f*c) scores as "good"
+        k_good = n - int(f * c)
+        good_idx = np.argsort(scores)[:k_good]
+        
+        # count survivals
+        survive_counts[good_idx] += 1
+    
+    # 3) Beta–Binomial posterior mean for benign probability
+    #    theta_i ~ Beta(alpha + k_i, beta + niters - k_i)
+    #    E[theta_i] = (alpha + k_i) / (alpha + beta + niters)
+    denom = (alpha + beta + niters)
+    theta_hat = (alpha + survive_counts) / denom     # shape (n,)
+    p_malicious = (1.0 - theta_hat).tolist()
+
+    
+    return p_malicious
 
 
 def fltrust(gradients, net, lr, f, byz, device):
@@ -266,6 +326,7 @@ def flame(gradients, net, lr, f, byz, device, epsilon, delta):
 
 
 def shieldfl(gradients, net, lr, f, byz, device, previous_gloabl_gradient, iteration, previous_gradients):
+    
     """
     Based on the description in https://ieeexplore.ieee.org/document/9762272
     gradients: list of gradients.
@@ -278,6 +339,7 @@ def shieldfl(gradients, net, lr, f, byz, device, previous_gloabl_gradient, itera
     iteration: iteration of training process
     previous_gradient: local model updates of previous iteration
     """
+
     kappa = 0  # the paper gave no indication on how to set this parameter
 
     param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
@@ -936,3 +998,325 @@ def romoa(gradients, net, lr, f, byz, device, F, prev_global_update, seed):   # 
         idx += torch.numel(param)
 
     return F_t, global_update
+
+
+def _heirichalFL(gradients, net, lr, f, byz, device, heirichal_params, seed):
+    """
+    gradients: list of gradients.
+    net: model parameters.
+    lr: learning rate.
+    f: number of malicious clients. The first f clients are malicious.
+    byz: attack type.
+    device: computation device.
+    seed: seed for random number generator
+    heirichal_params: dictionary containing user membership, user score, round, and number of groups
+    """
+    # Validate required keys in heirichal_params
+    KEYS_set = set(["assumed_mal_prct", 'user membership', 'user score', 'round', 'num groups', 'history'])
+    heirichal_params_keys = set(heirichal_params.keys())
+    #make sure that all KEYS_set are in heirichal_params_keys
+    if not KEYS_set.issubset(heirichal_params_keys):
+        raise ValueError(f"heirichal_params should have the keys {KEYS_set}")
+    
+    KEYS_history_set = set(['round_num', 'user_membership', 'user_score_adjustment', 'group_scores', 'global_gradient', "user_scores"])
+    heirichal_params_keys_history = set(heirichal_params['history'][0].keys())
+    #make sure that all KEYS_history_set are in heirichal_params_keys_history
+    if not KEYS_history_set.issubset(heirichal_params_keys_history):
+        raise ValueError(f"history should have the keys {KEYS_history_set}")
+    
+    
+
+    if "GT malicious" not in heirichal_params:
+        heirichal_params["GT malicious"] = [True] * f + [False] * (len(gradients) - f)
+        assert len(heirichal_params["GT malicious"]) == len(gradients), "GT malicious should have the same length as gradients"
+
+    # Update round number
+    heirichal_params['round'] += 1
+    
+    # Initialize current round record
+    current_round_record = {
+        "round_num": heirichal_params['round'],
+        "user_membership": [],
+        "user_score_adjustment": [],
+        "group_scores": {},
+        "user_scores": [],
+        "global_gradient": None
+    }
+    
+    skip_filtering = False
+    if (heirichal_params['round'] < 20):
+        skip_filtering = True
+        
+    param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
+    # Let the malicious clients perform the byzantine attack
+    if byz == attacks.fltrust_attack:
+        param_list = byz(param_list, net, lr, f, device)[:-1]
+    else:
+        param_list = byz(param_list, net, lr, f, device)
+        
+    number_of_users = len(param_list)
+    
+    # Simulate groups and assign users
+    heirichal_params = hfl.simulate_groups(heirichal_params, number_of_users, seed)
+
+    # Record user membership for current round
+    current_round_record["user_membership"] = heirichal_params["user membership"].copy()
+    
+    # Aggregate gradients for scoring
+    group_gradients_for_scoring, filtered_users_None = hfl.aggregate_groups(param_list, device, seed, heirichal_params, skip_filtering=True)
+    
+    # Score groups based on their behavior
+    groups_scores = hfl.score_groups(group_gradients_for_scoring, heirichal_params)
+    current_round_record["group_scores"] = groups_scores.copy()
+    
+    # Update user scores based on group scores
+    heirichal_params, user_scores_adjustments, current_user_scores = hfl.update_user_scores(heirichal_params, groups_scores)
+    current_round_record["user_score_adjustment"] = user_scores_adjustments.copy()
+    current_round_record["user_scores"] = current_user_scores.copy()
+    
+    # Aggregate gradients for model update
+    group_gradients, filtered_users = hfl.aggregate_groups(param_list, device, seed, heirichal_params)
+    
+    # Shuffle users across groups
+    heirichal_params = hfl.shuffle_users(heirichal_params, number_of_users, seed)
+    
+    # Handle empty group gradients
+    if len(group_gradients) == 0:
+        print("No gradients after filtering, skipping filtering")
+        skip_filtering = True
+        
+    if skip_filtering:
+        # If no gradients in group_gradients, use group_gradients_for_scoring
+        group_gradients = group_gradients_for_scoring
+        filtered_users = filtered_users_None
+    
+    # Apply robust aggregation to get global update
+    heirichal_params["current group scores"] = groups_scores.copy()
+    robust_update = hfl.robust_groups_aggregation(group_gradients, net, lr, device, heirichal_params, number_of_users)
+    current_round_record["global_gradient"] = robust_update.clone().detach()
+    current_round_record["filtered_users"] = filtered_users.copy()
+    
+    # Add current round record to history
+    heirichal_params["history"].append(current_round_record)
+
+    #
+    utils.save_data_to_csv(heirichal_params, f)
+    
+    return heirichal_params
+
+
+
+
+
+
+def heirichalFL(gradients, net, lr, f, byz, device, heirichal_params, seed):
+    """
+    gradients: list of gradients.
+    net: model parameters.
+    lr: learning rate.
+    f: number of malicious clients. The first f clients are malicious.
+    byz: attack type.
+    device: computation device.
+    seed: seed for random number generator
+    heirichal_params: dictionary containing user membership, user score, round, and number of groups
+    """
+    # Validate required keys in heirichal_params
+    KEYS_set = set(["assumed_mal_prct", 'user membership', 'user score', 'round', 'num groups', 'history'])
+    heirichal_params_keys = set(heirichal_params.keys())
+    #make sure that all KEYS_set are in heirichal_params_keys
+    if not KEYS_set.issubset(heirichal_params_keys):
+        raise ValueError(f"heirichal_params should have the keys {KEYS_set}")
+    
+    KEYS_history_set = set(['round_num', 'user_membership', 'user_score_adjustment', 'group_scores', 'global_gradient', "user_scores"])
+    heirichal_params_keys_history = set(heirichal_params['history'][0].keys())
+    #make sure that all KEYS_history_set are in heirichal_params_keys_history
+    if not KEYS_history_set.issubset(heirichal_params_keys_history):
+        raise ValueError(f"history should have the keys {KEYS_history_set}")
+    
+    
+
+    if "GT malicious" not in heirichal_params:
+        heirichal_params["GT malicious"] = [True] * f + [False] * (len(gradients) - f)
+        assert len(heirichal_params["GT malicious"]) == len(gradients), "GT malicious should have the same length as gradients"
+
+    # Update round number
+    heirichal_params['round'] += 1
+    
+    # Initialize current round record
+    current_round_record = {
+        "round_num": heirichal_params['round'],
+        "user_membership": [],
+        "user_score_adjustment": [],
+        "group_scores": {},
+        "user_scores": [],
+        "global_gradient": None
+    }
+    
+    skip_filtering = False
+    if (heirichal_params['round'] < 20):
+        skip_filtering = True
+        
+    param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
+    # Let the malicious clients perform the byzantine attack
+    if byz == attacks.fltrust_attack:
+        param_list = byz(param_list, net, lr, f, device)[:-1]
+    else:
+        param_list = byz(param_list, net, lr, f, device)
+        
+    number_of_users = len(param_list)
+    
+    # Simulate groups and assign users
+    heirichal_params = hfl.simulate_groups(heirichal_params, number_of_users, seed)
+
+    # Record user membership for current round
+    current_round_record["user_membership"] = heirichal_params["user membership"].copy()
+    
+    # Aggregate gradients for scoring
+    group_gradients_for_scoring, filtered_users_None = hfl.aggregate_groups(param_list, device, seed, heirichal_params, skip_filtering=True)
+    
+    # Score groups based on their behavior
+    groups_scores = hfl.score_groups(group_gradients_for_scoring, heirichal_params)
+    current_round_record["group_scores"] = groups_scores.copy()
+    
+    # Update user scores based on group scores
+    heirichal_params, user_scores_adjustments, current_user_scores = hfl.update_user_scores(heirichal_params, groups_scores)
+    current_round_record["user_score_adjustment"] = user_scores_adjustments.copy()
+    current_round_record["user_scores"] = current_user_scores.copy()
+    
+    # Aggregate gradients for model update
+    group_gradients, filtered_users = hfl.aggregate_groups(param_list, device, seed, heirichal_params)
+    
+    # Shuffle users across groups
+    heirichal_params = hfl.shuffle_users(heirichal_params, number_of_users, seed)
+    
+    # Handle empty group gradients
+    if len(group_gradients) == 0:
+        print("No gradients after filtering, skipping filtering")
+        skip_filtering = True
+        
+    if skip_filtering:
+        # If no gradients in group_gradients, use group_gradients_for_scoring
+        group_gradients = group_gradients_for_scoring
+        filtered_users = filtered_users_None
+    
+    # Apply robust aggregation to get global update
+    heirichal_params["current group scores"] = groups_scores.copy()
+    robust_update = hfl.robust_groups_aggregation(group_gradients, net, lr, device, heirichal_params, number_of_users)
+    current_round_record["global_gradient"] = robust_update.clone().detach()
+    current_round_record["filtered_users"] = filtered_users.copy()
+    
+    # Add current round record to history
+    heirichal_params["history"].append(current_round_record)
+
+    #
+    utils.save_data_to_csv(heirichal_params, f)
+    
+    return heirichal_params
+
+
+
+
+
+
+def bayesian_fl_aggregation_rule(gradients, net, lr, f, byz, device, heirichal_params, seed):
+    """
+    Aggregation rule for FL using Bayesian inference to update node fault probabilities.
+    """
+    # --- 1. Standard setup, parameter validation, round update ---
+    REQUIRED_BBN_KEYS = ['bbn_config']
+    if not all(key in heirichal_params for key in REQUIRED_BBN_KEYS):
+        raise ValueError(f"heirichal_params missing BBN configuration keys: {REQUIRED_BBN_KEYS}")
+    
+    # Ensure user_score is initialized and is a numpy array for BBN
+    if not isinstance(heirichal_params.get('user_score'), np.ndarray):
+        initial_prob = heirichal_params['bbn_config'].get('initial_fault_probability', 0.1) # Default
+        heirichal_params['user_score'] = np.full(len(gradients), initial_prob)
+    current_node_fault_probs = heirichal_params['user_score']
+    
+    # Validate other keys (copied from your heirichalFL)
+    KEYS_set = set(["assumed_mal_prct", 'user membership', 'user score', 'round', 'num groups', 'history', 'bbn_config'])
+    if not KEYS_set.issubset(heirichal_params.keys()):
+        raise ValueError(f"heirichal_params should have the keys {KEYS_set}")
+    
+    if heirichal_params['history']: # Check if history is not empty
+        KEYS_history_set = set(['round_num', 'user_membership', 'user_score_adjustment', 'group_scores', 'global_gradient', "user_scores"])
+        if not KEYS_history_set.issubset(heirichal_params['history'][0].keys()):
+             raise ValueError(f"history should have the keys {KEYS_history_set}")
+    
+    if "GT malicious" not in heirichal_params: # Ground truth for simulation
+        heirichal_params["GT malicious"] = [True] * f + [False] * (len(gradients) - f)
+
+    heirichal_params['round'] += 1
+    current_round_record = {
+        "round_num": heirichal_params['round'],
+        "user_membership": [], # Will be populated by hfl.simulate_groups or similar
+        "user_score_adjustment": [], # BBN directly gives new scores, so adjustment might be implicit
+        "group_scores_observed": {}, # Raw scores from hfl.score_groups
+        "user_scores_prior_bbn": current_node_fault_probs.tolist(),
+        "user_scores": [], # Will be posterior from BBN
+        "global_gradient": None,
+        "filtered_users": [] # If filtering is done
+    }
+    
+    param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
+    if byz == attacks.fltrust_attack:
+        param_list = byz(param_list, net, lr, f, device)[:-1]
+    else:
+        param_list = byz(param_list, net, lr, f, device)
+        
+    number_of_users = len(param_list)
+    
+
+    number_of_users = len(param_list)
+    node_ids = list(range(number_of_users))
+
+    
+
+    groups_for_bbn = heuristic_suspect_isolation_grouping_strategy(
+        node_ids,
+        current_node_fault_probs,
+        heirichal_params['bbn_config']['suspect_threshold_for_heuristic_grouping'],
+        heirichal_params['bbn_config']['num_clearance_groups_for_heuristic_grouping']
+    )
+    # Update user_membership_dict based on groups_for_bbn for consistency if needed by hfl.score_groups
+    user_membership_dict_for_bbn = {}
+    for group_idx, user_list in enumerate(groups_for_bbn):
+        for user_id in user_list:
+            user_membership_dict_for_bbn[user_id] = group_idx # group_idx serves as group_id
+    
+    current_round_record["user_membership"] = user_membership_dict_for_bbn # Log FL grouping
+    
+    
+
+    # --- 4. Get group observations for BBN
+    # TODO: we need to aggregate the users groups based on groups_for_bbn and gradients list
+    # TODO: we need to score groups based on their gradients (the observation function) from 0 to 1. group-gradients -> probability of being malicious from 0 to 1.
+    # output is group_observations_for_bbn (dict group_id -> scaled_score_0_to_1)
+    current_round_record["group_scores_observed"] = group_observations_for_bbn.copy()
+
+    # --- 6. BBN Update Step --- #CAREFUL: THE FUNCTION WILL KEEP INITIALIZING BBN BECAUSE IT IS CALLED IN FOR EACH FL ROUND. IS THIS EXPECTED? 
+    bbn_instance = IterativeBBN(number_of_users, heirichal_params['bbn_config'])
+    bbn_instance.build_iteration_network(current_node_fault_probs, groups_for_bbn)
+    bbn_instance.set_group_observations(group_observations_for_bbn)
+    updated_node_fault_probs = bbn_instance.infer_node_posteriors()
+    
+    heirichal_params['user_score'] = updated_node_fault_probs # Update main user scores with BBN posteriors
+    current_round_record["user_scores"] = updated_node_fault_probs.tolist()
+    current_round_record["user_score_adjustment"] = (updated_node_fault_probs - current_node_fault_probs).tolist()
+
+
+    # --- 7. Robust Aggregation using BBN-updated probabilities ---
+    # TODO: from the groups_for_bbn, give zero weight to the group that the suspected malicious user in it.
+    # then give weights to the groups based on the BBN probabilities of the users in the groups. 
+    #Then simply aggregate the gradients of the groups using simple weighted average. (dont implement or use a funcion, just do it here)
+
+
+    # --- 8. Logging ---
+    current_round_record["global_gradient"] = robust_update.clone().detach()
+    heirichal_params["history"].append(current_round_record)
+    
+    # Assuming utils.save_data_to_csv exists and works with heirichal_params
+    # utils.save_data_to_csv(heirichal_params, f) 
+
+    # --- 9. Return heirichal_params ---
+    return heirichal_params

@@ -135,6 +135,7 @@ dmypy.json
 # Datasets
 data/UCI HAR Dataset.zip
 data/HAR
+data/MNIST
 
 # MP-SPDZ framework
 mpspdz
@@ -145,3 +146,6 @@ mp-spdz-0.3.2.tar.xz
 !mpspdz/ExternalIO/mpc_client.py
 !mpspdz/Programs/Source/mpc_fltrust_server.mpc
 !mpspdz/Programs/Source/mpc_fedavg_server.mpc
+**/.claude/settings.local.json
+# RSULTS
+results/

@@ -10,11 +10,110 @@ import data_loaders
 import os
 import math
 import subprocess
+import time
 
 import torch
 import torch.nn as nn
 import torch.utils.data
 from matplotlib import pyplot as plt
+import pandas as pd
+from tqdm import tqdm
+"""
+
+NOTE ON THE CODE:
+DOUBLE CHECK IF THAT THE USER SCORES ARE IDICATIVE OF TRUSTWORTHINESS AND NOT MALICIOUSNESS
+THE USER IDS SHOULD START FROM 0 AND BE CONTINUOUS
+
+1. I am editing fedavg to not take into account data_sizes = [x.size(dim=0) for x in each_worker_data]
+Revert later for honest comparison
+
+"""
+
+
+
+def save_results_to_csv(runs_test_accuracy, runs_backdoor_success, test_iterations, args):
+    """
+    Saves numerical results to CSV files.
+    """
+    import pandas as pd
+    import os
+    import numpy as np
+    
+    # Create results directory if it doesn't exist
+    os.makedirs("results", exist_ok=True)
+    
+    # Convert to numpy arrays to better handle dimensions
+    runs_test_accuracy = np.array(runs_test_accuracy)
+    test_iterations = np.array(test_iterations)
+    
+    # Print shapes for debugging
+    """
+    print(f"runs_test_accuracy shape: {runs_test_accuracy.shape}")
+    print(f"test_iterations shape: {test_iterations.shape}")
+    """
+    # Handle single run case
+    if runs_test_accuracy.ndim == 1:
+        runs_test_accuracy = runs_test_accuracy.reshape(1, -1)
+    
+    # Get number of columns in accuracy data
+    num_cols = runs_test_accuracy.shape[1]
+    
+    # Create properly sized column names
+    if len(test_iterations) == num_cols:
+        column_names = [f"Iter_{i}" for i in test_iterations]
+    else:
+        # If lengths don't match, just use generic column names
+        column_names = [f"Iter_{i}" for i in range(num_cols)]
+    
+    # Save test accuracy
+    test_acc_df = pd.DataFrame(runs_test_accuracy, columns=column_names)
+    test_acc_df.to_csv(f"results/accuracy_{args.dataset}_{args.aggregation}_{args.byz_type}_n{args.nruns}.csv", index=False)
+    
+    # Save backdoor success rate if available
+    if args.byz_type == "scaling_attack":
+        if isinstance(runs_backdoor_success, list):
+            runs_backdoor_success = np.array(runs_backdoor_success)
+        
+        # Handle single run case
+        if runs_backdoor_success.ndim == 1:
+            runs_backdoor_success = runs_backdoor_success.reshape(1, -1)
+            
+        backdoor_df = pd.DataFrame(runs_backdoor_success, columns=column_names)
+        backdoor_df.to_csv(f"results/backdoor_{args.dataset}_{args.aggregation}_{args.byz_type}_n{args.nruns}.csv", index=False)
+    
+    # Save configuration
+    with open(f"results/config_{args.dataset}_{args.aggregation}_{args.byz_type}_n{args.nruns}.txt", 'w') as f:
+        for arg, value in vars(args).items():
+            f.write(f"{arg}: {value}\n")
+
+
+def save_mpc_metrics(args, total_time, communication_cost=None):
+    """
+    Saves metrics related to MPC protocols execution.
+    args: arguments defining hyperparameters
+    total_time: total execution time in seconds
+    communication_cost: estimated communication cost in bytes (if measured)
+    """
+    import json
+    import os
+    
+    os.makedirs("mpc_results", exist_ok=True)
+    
+    metrics = {
+        "protocol": args.protocol,
+        "players": args.players,
+        "aggregation": args.aggregation,
+        "port": args.port,
+        "chunk_size": args.chunk_size,
+        "nworkers": args.nworkers,
+        "nbyz": args.nbyz,
+        "byz_type": args.byz_type,
+        "execution_time": total_time,
+        "communication_cost": communication_cost
+    }
+    
+    with open(f"mpc_results/mpc_{args.protocol}_{args.aggregation}_{args.dataset}_p{args.players}.json", 'w') as f:
+        json.dump(metrics, f, indent=4)
 
 
 def parse_args():
@@ -22,6 +121,10 @@ def parse_args():
     Parses all commandline arguments.
     """
     parser = argparse.ArgumentParser(description="SAFEFL: MPC-friendly framework for Private and Robust Federated Learning")
+
+    #experiment ID (i.e., when running multiple parallel experiments)
+    parser.add_argument("--exp_id", help="experiment ID", type=int, default=0)
+
 
     ### Model and Dataset
     parser.add_argument("--net", help="net", type=str, default="lr")
@@ -31,14 +134,14 @@ def parse_args():
     parser.add_argument("--p", help="bias probability of class 1 in server dataset", type=float, default=0.1)
 
     ### Training
-    parser.add_argument("--niter", help="# iterations", type=int, default=2000)
+    parser.add_argument("--niter", help="# iterations", type=int, default=250)
     parser.add_argument("--nworkers", help="# workers", type=int, default=30)
     parser.add_argument("--batch_size", help="batch size", type=int, default=64)
     parser.add_argument("--lr", help="learning rate", type=float, default=0.25)
-    parser.add_argument("--gpu", help="no gpu = -1, gpu training otherwise", type=int, default=-1)
+    parser.add_argument("--gpu", help="no gpu = -1, gpu training otherwise", type=int, default=1)
     parser.add_argument("--seed", help="seed", type=int, default=1)
     parser.add_argument("--nruns", help="number of runs for averaging accuracy", type=int, default=1)
-    parser.add_argument("--test_every", help="testing interval", type=int, default=50)
+    parser.add_argument("--test_every", help="testing interval", type=int, default=5)
 
     ### Aggregations
     parser.add_argument("--aggregation", help="aggregation", type=str, default="fedavg")
@@ -54,6 +157,15 @@ def parse_args():
     parser.add_argument("--dnc_niters", help="number of iterations to compute good sets in DnC", type=int, default=5)
     parser.add_argument("--dnc_c", help="filtering fraction, percentage of number of malicious clients filtered", type=float, default=1)
     parser.add_argument("--dnc_b", help="dimension of subsamples must be smaller, then the dimension of the gradients", type=int, default=2000)
+
+    #heirichalFL
+    # number of groups
+    parser.add_argument("--n_groups", help="number of groups", type=int, default=5)
+    #assumed number of malcious users percentage. assumed_mal_prct
+    parser.add_argument("--assumed_mal_prct", help="assumed number of malcious users percentage", type=float, default=0.1)
+
+
+
 
     ### Attacks
     parser.add_argument("--nbyz", help="# byzantines", type=int, default=6)
@@ -83,8 +195,9 @@ def get_device(device):
         ctx = torch.device('cpu')
     else:
         ctx = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        print("Using device: ", ctx)
 
-    print(ctx)
+    #print(ctx)
     return ctx
 
 
@@ -98,7 +211,7 @@ def get_net(net_type, num_inputs, num_outputs=10):
     if net_type == "lr":
         import models.lr as lr
         net = lr.LinearRegression(input_dim=num_inputs, output_dim=num_outputs)
-        print(net)
+        #print(net)
     else:
         raise NotImplementedError
     return net
@@ -205,13 +318,14 @@ def evaluate_accuracy(data_iterator, net, device, trigger, dataset):
         return acc, None
 
 
-def plot_results(runs_test_accuracy, runs_backdoor_success, test_iterations, niter):
+def plot_results(runs_test_accuracy, runs_backdoor_success, test_iterations, niter, save_path=None):
     """
     Plots the evaluation results.
     runs_test_accuracy: accuracy of the model in each iteration specified in test_iterations of every run
     runs_backdoor_success: backdoor success of the model in each iteration specified in test_iterations of every run
     test_iterations: list of iterations the model was evaluated in
     niter: number of iteration the model was trained for
+    save_path: path to save the figure
     """
     test_acc_std = []
     test_acc_list = []
@@ -256,9 +370,11 @@ def plot_results(runs_test_accuracy, runs_backdoor_success, test_iterations, nit
         if args.byz_type == "scaling_attack":
             print("The average final backdoor success rate was: %0.4f with an overall average:" % backdoor_success_list[-1])
             print(repr(backdoor_success_list))
+    
     # Generate plot with two axis displaying accuracy and backdoor success rate over the iterations
+    fig = plt.figure()
     if args.byz_type == "scaling_attack":
-        fig, ax1 = plt.subplots()
+        ax1 = plt.subplot()
 
         ax1.set_xlabel('epochs')
         ax1.set_ylabel('accuracy')
@@ -278,7 +394,6 @@ def plot_results(runs_test_accuracy, runs_backdoor_success, test_iterations, nit
         plt.xlim(0, niter)
         plt.title("Test Accuracy + Backdoor success: " + args.net + ", " + args.dataset + ", " + args.aggregation + ", " + args.byz_type + ", nruns " + str(args.nruns))
         plt.grid()
-        plt.show()
     # Generate plot with only the accuracy as one axis over the iterations
     else:
         plt.plot(test_iterations, test_acc_list, color='C0')
@@ -289,8 +404,15 @@ def plot_results(runs_test_accuracy, runs_backdoor_success, test_iterations, nit
         plt.xlim(0, niter)
         plt.ylim(0, 1)
         plt.grid()
-        plt.show()
-
+    
+    # Save figure if path is provided
+    if save_path:
+        # Make sure directory exists
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    
+    # Show the plot and then clear it
+    plt.show()
 
 def weight_init(m):
     """
@@ -324,7 +446,7 @@ def main(args):
                   + ", MP-SPDZ: " + str(args.mpspdz) + ", Port: "+ str(args.port) + ", Chunk_size: " + str(args.chunk_size)
                   + ", Protocol: " + args.protocol + ", Threads: " + str(args.threads) + ", Parallels: " + str(args.parallels)
                   + ", Seed: " + str(args.seed) + ", Test Every: " + str(args.test_every))
-    print(paraString)
+    #print(paraString)
 
     # saving iterations for averaging
     runs_test_accuracy = []
@@ -355,6 +477,7 @@ def main(args):
 
     # compile server programm for aggregation in MPC
     if args.mpspdz:
+        mpc_start_time = time.time()
         script, players = get_protocol(args.protocol, args.players)
         args.script, args.players = script, players
 
@@ -384,6 +507,9 @@ def main(args):
         os.system('Scripts/setup-clients.sh 1')
 
         os.chdir("..")
+        mpc_end_time = time.time()
+        mpc_total_time = mpc_end_time - mpc_start_time
+        save_mpc_metrics(args, mpc_total_time)
 
     # perform multiple runs
     for run in range(1, args.nruns+1):
@@ -418,6 +544,23 @@ def main(args):
             previous_global_gradient = torch.cat([param.clone().detach().flatten() for param in net.parameters()]).reshape(-1, 1) + torch.normal(mean=0, std=1e-7, size=(num_params, 1)).to(device)
             sanitization_factor = torch.full(size=(args.nworkers, num_params), fill_value=(1 / args.nworkers)).to(device)  # sanitization factors for Romoa
 
+        elif args.aggregation == "heirichalFL":
+            # number of groups
+            
+            if run == 1:
+                # initialize the parameters for the first run
+                n_groups = args.n_groups
+                assumed_mal_prct = args.assumed_mal_prct
+                n_users = args.nworkers
+                exp_id = args.exp_id
+                attack_type = args.byz_type
+
+                heirichal_params = { "experiment_id": exp_id, "attack type":attack_type , \
+                    "assumed_mal_prct":assumed_mal_prct , "user membership": [], "user score": [0 for i in range(n_users)], "round": 0, "num groups": n_groups, \
+                                    "history": [{'round_num': int, 'user_membership': list, 'user_score_adjustment': list, \
+                                                 'group_scores': list,"user_scores": list, "global_gradient": torch.tensor}]}
+            
+
         train_data, test_data = data_loaders.load_data(args.dataset, args.seed)  # load the data
 
         # assign data to the server and clients
@@ -445,7 +588,7 @@ def main(args):
 
         with torch.no_grad():
             # training
-            for e in range(args.niter):
+            for e in tqdm(range(args.niter)):
                 net.train()
 
                 # perform local training for each worker
@@ -478,6 +621,8 @@ def main(args):
 
                 elif args.aggregation == "fedavg":
                     data_sizes = [x.size(dim=0) for x in each_worker_data]
+                    # make the data_sizes the same for all workers
+                    data_sizes = [max(data_sizes) for i in range(args.nworkers)]
                     aggregation_rules.fedavg(grad_list, net, args.lr, args.nbyz, byz, device, data_sizes)
 
                 elif args.aggregation == "krum":
@@ -516,6 +661,11 @@ def main(args):
                 elif args.aggregation == "romoa":
                     sanitization_factor, previous_global_gradient = aggregation_rules.romoa(grad_list, net, args.lr, args.nbyz, byz, device, F=sanitization_factor, prev_global_update=previous_global_gradient, seed=args.seed)
 
+                elif args.aggregation == "heirichalFL":
+                    
+                    
+                    heirichal_params = aggregation_rules.heirichalFL(grad_list, net, args.lr, args.nbyz, byz, device, heirichal_params, seed=args.seed)
+
                 else:
                     raise NotImplementedError
 
@@ -528,9 +678,55 @@ def main(args):
                     test_iterations.append(e)
                     if args.byz_type == "scaling_attack":
                         backdoor_success_list.append(test_success_rate)
+                        round_backdoor_success = test_success_rate
                         print("Iteration %02d. Test_acc %0.4f. Backdoor success rate: %0.4f" % (e, test_accuracy, test_success_rate))
-                    else:
+                    else: 
+                        round_backdoor_success = np.nan
                         print("Iteration %02d. Test_acc %0.4f" % (e, test_accuracy))
+
+
+                    round_num = e
+                    round_accuracy = test_accuracy
+                    
+                    aggregation_name = args.aggregation
+                    malicious_count = args.nbyz
+                    malicoiuos_type = args.byz_type
+                    bias_values = args.bias
+                    server_bias = args.p
+                    total_participants = args.nworkers
+                    experiment_id = args.exp_id
+
+                    record_round = {
+                        "round_num": round_num,
+                        "round_accuracy": round_accuracy,
+                        "round_backdoor_success": round_backdoor_success,
+                        "aggregation_name": aggregation_name,
+                        "malicious_count": malicious_count,
+                        "malicious_type": malicoiuos_type,
+                        "bias_values": bias_values,
+                        "server_bias": server_bias,
+                        "total_participants": total_participants,
+                        "experiment_id": experiment_id
+
+                    }
+
+                    #check if experiment_results.csv exists
+                    if os.path.exists('results/hierarchical/experiment_results.csv'):
+                        #read the csv file and append the new record
+                        df = pd.read_csv('results/hierarchical/experiment_results.csv')
+                        df = pd.concat([df, pd.DataFrame([record_round])], ignore_index=True)
+                        df.to_csv('results/hierarchical/experiment_results.csv', index=False)
+                    else:
+                        #create the csv file and write the new record
+                        df = pd.DataFrame([record_round])
+                        df.to_csv('results/hierarchical/experiment_results.csv', index=False)
+                    
+
+
+
+                        
+                    
+                        
 
         if args.mpspdz:
             server_process.wait()   # wait for process to exit
@@ -548,11 +744,25 @@ def main(args):
             print("Run %02d/%02d done with final accuracy: %0.4f and backdoor success rate: %0.4f" % (run, args.nruns, test_acc_list[-1], backdoor_success_list[-1]))
         else:
             print("Run %02d/%02d done with final accuracy: %0.4f" % (run, args.nruns, test_acc_list[-1]))
+    
+    
+    
+    save_results_to_csv(runs_test_accuracy, runs_backdoor_success, test_iterations, args)
 
 
+    return runs_test_accuracy, runs_backdoor_success, test_iterations
+    """
+    plot_results(
+        runs_test_accuracy, 
+        runs_backdoor_success, 
+        test_iterations, 
+        args.niter,
+        save_path=f"results/figures/plot_{args.dataset}_{args.aggregation}_{args.byz_type}_n{args.nruns}.png"
+    )
+    
     del test_acc_list
     test_acc_list = []
-
+    """
 
 if __name__ == "__main__":
     args = parse_args()     # parse arguments
