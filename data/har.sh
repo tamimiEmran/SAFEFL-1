@@ -1,10 +1,11 @@
+#!/bin/bash
 # download and unzip dataset
-wget https://archive.ics.uci.edu/ml/machine-learning-databases/00240/UCI%20HAR%20Dataset.zip
+wget https://archive.ics.uci.edu/static/public/240/human+activity+recognition+using+smartphones.zip -O UCI_HAR_Dataset.zip
 
-unzip UCI\ HAR\ Dataset.zip
+unzip UCI_HAR_Dataset.zip
 
-mv UCI\ HAR\ Dataset HAR
+mv "UCI HAR Dataset" HAR
 
-rm -r  __MACOSX
+rm -rf __MACOSX
 
-rm UCI\ HAR\ Dataset.zip
+rm UCI_HAR_Dataset.zip

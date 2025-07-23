@@ -191,6 +191,15 @@ def get_device(device):
     Selects the device to run the training process on.
     device: -1 to only use cpu, otherwise cuda if available
     """
+    # check if gpu is available
+    # check for available GPUs
+    if torch.cuda.is_available():
+        gpu_count = torch.cuda.device_count()
+        print(f"Available GPUs: {gpu_count}")
+        for i in range(gpu_count):
+            print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+    else:
+        print("No GPUs available")
     if device == -1:
         ctx = torch.device('cpu')
     else:

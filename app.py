@@ -21,6 +21,8 @@ st.set_page_config(
 # Initialize session state variables
 if 'last_update_time' not in st.session_state:
     st.session_state.last_update_time = time.time()
+if 'selected_dataset' not in st.session_state:
+    st.session_state.selected_dataset = "MNIST"
 if 'data_loader' not in st.session_state:
     # Set the data directory - modify this path as needed
     data_dir = Path("M:/PythonTests/newSafeFL/SAFEFL/results/hierarchical")
@@ -33,6 +35,31 @@ create_sidebar()
 # Main content
 st.title("Hierarchical Federated Learning Dashboard")
 
+# Dataset selection
+col1, col2, col3 = st.columns([1, 1, 2])
+with col1:
+    dataset = st.selectbox(
+        "Select Dataset:",
+        ["MNIST", "HAR"],
+        index=0 if st.session_state.selected_dataset == "MNIST" else 1,
+        help="Choose between MNIST and HAR datasets"
+    )
+    
+    # Update session state if dataset changed
+    if dataset != st.session_state.selected_dataset:
+        st.session_state.selected_dataset = dataset
+        st.experimental_rerun()
+
+with col2:
+    if dataset == "HAR":
+        har_attack_type = st.selectbox(
+            "HAR Attack Type:",
+            ["Label Flipping", "Scaling Attack"],
+            help="Select the HAR attack dataset to load"
+        )
+    else:
+        har_attack_type = None
+
 # Get current experiment ID
 current_exp_id = st.session_state.data_loader.current_experiment_id
 if current_exp_id is not None:
@@ -41,8 +68,56 @@ if current_exp_id is not None:
 # Overview metrics
 st.header("Experiment Overview")
 
-# Get experiment overview data
-experiment_data = st.session_state.data_loader.get_experiment_results()
+# Get experiment overview data based on dataset selection
+if dataset == "HAR":
+    # Load HAR CSV data
+    har_csv_path = Path("score_function_viz")
+    if har_attack_type == "Label Flipping":
+        har_data_path = har_csv_path / "HAR_final_labelsFlipping.csv"
+    else:  # Scaling Attack
+        har_data_path = har_csv_path / "HAR_final_scaling_attak.csv"
+    
+    # Check if file exists
+    if har_data_path.exists():
+        # Load HAR data
+        har_data = pd.read_csv(har_data_path)
+        
+        # Display HAR data info
+        st.info(f"Loaded HAR dataset: {har_attack_type} ({len(har_data)} records)")
+        
+        # Process HAR data to match experiment_data format
+        # Group by round and get summary statistics
+        experiment_data = har_data.groupby('round_id').agg({
+            'n_total_clients': 'first',
+            'n_total_mal': 'first',
+            'group_size': 'first',
+            'grouping_agg': 'first',
+            'n_total_groups': 'first',
+            'byz_type': 'first'
+        }).reset_index()
+        
+        # Add required columns for compatibility
+        experiment_data['round_accuracy'] = 0.85  # Placeholder - you may want to compute actual accuracy
+        experiment_data['round_backdoor_success'] = 0.0 if har_attack_type == "Label Flipping" else 0.15
+        experiment_data['total_participants'] = experiment_data['n_total_clients']
+        experiment_data['malicious_count'] = experiment_data['n_total_mal']
+        experiment_data['aggregation_name'] = 'HierarchicalFL'
+        experiment_data['malicious_type'] = experiment_data['byz_type']
+        experiment_data['experiment_id'] = f"HAR_{har_attack_type.replace(' ', '_')}"
+        experiment_data['round_num'] = experiment_data['round_id']
+        experiment_data['server_bias'] = 0.1  # Placeholder
+        experiment_data['bias_values'] = "0.9"  # Placeholder
+        
+        # Store HAR data in session state for other pages
+        st.session_state.har_data = har_data
+        st.session_state.har_experiment_data = experiment_data
+        
+    else:
+        st.error(f"HAR data file not found: {har_data_path}")
+        experiment_data = None
+else:
+    # Get MNIST experiment data from data_loader
+    experiment_data = st.session_state.data_loader.get_experiment_results()
 
 if experiment_data is not None and not experiment_data.empty:
     # Display metrics in columns

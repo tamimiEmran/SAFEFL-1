@@ -149,3 +149,6 @@ mp-spdz-0.3.2.tar.xz
 **/.claude/settings.local.json
 # RSULTS
 results/
+score_function_viz/*.csv
+figures/
+data/

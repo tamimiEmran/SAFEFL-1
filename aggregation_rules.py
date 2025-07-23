@@ -17,17 +17,11 @@ import heirichalFL as hfl
 
 # Copyright (c) 2015, Leland McInnes
 # All rights reserved.
-#
 # Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-#
 # 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-#
 # 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-#
 # 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
 # Available at: https://github.com/scikit-learn-contrib/hdbscan
 import torch
 import numpy as np
@@ -138,7 +132,7 @@ def fltrust(gradients, net, lr, f, byz, device):
         idx += torch.numel(param)
 
 
-def fedavg(gradients, net, lr, f, byz, device, data_sizes):
+def _fedavg(gradients, net, lr, f, byz, device, data_sizes):
     """
     Based on the description in https://arxiv.org/abs/1602.05629
     gradients: list of gradients.
@@ -1320,3 +1314,92 @@ def bayesian_fl_aggregation_rule(gradients, net, lr, f, byz, device, heirichal_p
 
     # --- 9. Return heirichal_params ---
     return heirichal_params
+
+import pandas as pd
+from visualize_scoringfunction import round_full_scores
+
+#########################################
+def fedavg(gradients, net, lr, f, byz, device, data_sizes):
+    """
+    Based on the description in https://arxiv.org/abs/1602.05629
+    gradients: list of gradients.
+    net: model parameters.
+    lr: learning rate.
+    f: number of malicious clients. The first f clients are malicious.
+    byz: attack type.
+    device: computation device.
+    data_size: amount of training data of each worker device
+    """
+    param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
+    # let the malicious clients (first f clients) perform the byzantine attack
+    if byz == attacks.fltrust_attack:
+        param_list = byz(param_list, net, lr, f, device)[:-1]
+    else:
+        param_list = byz(param_list, net, lr, f, device)
+
+
+    #the first time this functin is called set a round_id to 1. Then every time this function is called increment the round_id by 1.
+    if "round_id" not in fedavg.__dict__:
+        fedavg.round_id = 1
+    else:
+        fedavg.round_id += 1
+
+    n = len(param_list)
+    byz_type = byz.__name__ if byz else "None"
+    columns = [
+        # Experiment-level data
+        "round_id",
+        "byz_type",
+        "n_total_clients",
+        "n_total_mal",
+        "group_size",
+        "grouping_agg",
+        
+        # Client-level metadata
+        "client_id",
+        "is_user_malicious",
+        
+        # Group-level metadata
+        "group_id",
+        "n_total_groups",
+        "group_id_size",
+        "group_id_mal_size",
+        
+        # Score-level data
+        "scoring_func",
+        "score"
+    ]
+
+    fixed_vis_data_for_this_round = {
+        "round_id": fedavg.round_id,
+        "byz_type": byz_type,
+        "n_total_clients": n,
+        "n_total_mal": f
+    }
+
+    records = round_full_scores(gradients= gradients, 
+                                fixed_vis_data_for_this_round= fixed_vis_data_for_this_round)
+    
+    # Save the records to a csv file and add if its already exists
+    df = pd.DataFrame(records, columns=columns)
+    csv_file = r"score_function_viz\HAR_final_fixed_f.csv"
+
+    if not os.path.exists(csv_file):
+        df.to_csv(csv_file, index=False)
+    else:
+        df.to_csv(csv_file, mode='a', header=False, index=False)
+
+    n = len(param_list)
+    total_data_size = sum(data_sizes)
+
+    # compute global model update
+    global_update = torch.zeros(param_list[0].size()).to(device)
+    for i, grad in enumerate(param_list):
+        global_update += grad * data_sizes[i]
+    global_update /= total_data_size
+
+    # update the global model
+    idx = 0
+    for j, param in enumerate(net.parameters()):
+        param.add_(global_update[idx:(idx + torch.numel(param))].reshape(tuple(param.size())), alpha=-lr)
+        idx += torch.numel(param)
