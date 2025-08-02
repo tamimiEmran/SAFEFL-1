@@ -1,3 +1,4 @@
+from asyncio import graph
 import attacks
 
 import math
@@ -1209,111 +1210,61 @@ def heirichalFL(gradients, net, lr, f, byz, device, heirichal_params, seed):
 
 
 
+from pgmax import fgraph
+from pgmax.factor import EnumFactor
+from itertools import product
+from pgmax.infer import BP, get_marginals
+from bayesian.grouping 
+# TODO: wrap the factor graph in a function, pass the observed_scores to it. 
+# TODO: pass names for the observation function, expectation function, and likelihood function
+# TODO: add the grouping logic and aggregation logic which includes excluding faulty nodes. 
 
+# What i want the grouping logic to do:
+# 1. group the gradients by the number of groups
+# 2. aggregate the gradients within each group by (averaging or summing)
+# 3. shuffle users before every round
+# 4. Take best gradients before group based on threshold
 
-
-def bayesian_fl_aggregation_rule(gradients, net, lr, f, byz, device, heirichal_params, seed):
+def bayesian_fl_aggregation_rule(gradients, net, lr, f, byz, device, bayesian_params, seed):
     """
     Aggregation rule for FL using Bayesian inference to update node fault probabilities.
     """
-    # --- 1. Standard setup, parameter validation, round update ---
-    REQUIRED_BBN_KEYS = ['bbn_config']
-    if not all(key in heirichal_params for key in REQUIRED_BBN_KEYS):
-        raise ValueError(f"heirichal_params missing BBN configuration keys: {REQUIRED_BBN_KEYS}")
-    
-    # Ensure user_score is initialized and is a numpy array for BBN
-    if not isinstance(heirichal_params.get('user_score'), np.ndarray):
-        initial_prob = heirichal_params['bbn_config'].get('initial_fault_probability', 0.1) # Default
-        heirichal_params['user_score'] = np.full(len(gradients), initial_prob)
-    current_node_fault_probs = heirichal_params['user_score']
-    
-    # Validate other keys (copied from your heirichalFL)
-    KEYS_set = set(["assumed_mal_prct", 'user membership', 'user score', 'round', 'num groups', 'history', 'bbn_config'])
-    if not KEYS_set.issubset(heirichal_params.keys()):
-        raise ValueError(f"heirichal_params should have the keys {KEYS_set}")
-    
-    if heirichal_params['history']: # Check if history is not empty
-        KEYS_history_set = set(['round_num', 'user_membership', 'user_score_adjustment', 'group_scores', 'global_gradient', "user_scores"])
-        if not KEYS_history_set.issubset(heirichal_params['history'][0].keys()):
-             raise ValueError(f"history should have the keys {KEYS_history_set}")
-    
-    if "GT malicious" not in heirichal_params: # Ground truth for simulation
-        heirichal_params["GT malicious"] = [True] * f + [False] * (len(gradients) - f)
+    num_nodes = len(gradients)
 
-    heirichal_params['round'] += 1
-    current_round_record = {
-        "round_num": heirichal_params['round'],
-        "user_membership": [], # Will be populated by hfl.simulate_groups or similar
-        "user_score_adjustment": [], # BBN directly gives new scores, so adjustment might be implicit
-        "group_scores_observed": {}, # Raw scores from hfl.score_groups
-        "user_scores_prior_bbn": current_node_fault_probs.tolist(),
-        "user_scores": [], # Will be posterior from BBN
-        "global_gradient": None,
-        "filtered_users": [] # If filtering is done
-    }
-    
-    param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
-    if byz == attacks.fltrust_attack:
-        param_list = byz(param_list, net, lr, f, device)[:-1]
-    else:
-        param_list = byz(param_list, net, lr, f, device)
+    observed_scores = observation_function(gradients)
+
+
+    # initialize the factor graph
+    graph = fgraph.FactorGraph()
+    graph.add_variables(num_nodes)  # F_1 … F_N
+
+    for group_id, indices in groups.values():
         
-    number_of_users = len(param_list)
+        indices_cardinality = [(i, 2) for i in indices]  # each node can be either faulty or not
+        factor_configs = np.array(list(product([0,1], repeat=len(indices))))  # all combinations of faulty/not faulty for the group
+
+        likelihoods = []  # likelihoods for each configuration
+        for config in factor_configs:
+            #config is tuple
+            expectation_config = expectation_function(config)
+            likelihood_config = likelihood_function(observed_scores[group_id], expectation_config)
+            likelihoods.append(likelihood_config)
+
+        likelihoods = np.array(likelihoods)
+        factor = EnumFactor(factor_configs= factor_configs,
+                            variables= indices_cardinality,
+                            log_potentials= likelihoods)
+        
+        graph.add_factor(factor, indices)  # add the factor to the graph
     
-
-    number_of_users = len(param_list)
-    node_ids = list(range(number_of_users))
-
-    
-
-    groups_for_bbn = heuristic_suspect_isolation_grouping_strategy(
-        node_ids,
-        current_node_fault_probs,
-        heirichal_params['bbn_config']['suspect_threshold_for_heuristic_grouping'],
-        heirichal_params['bbn_config']['num_clearance_groups_for_heuristic_grouping']
-    )
-    # Update user_membership_dict based on groups_for_bbn for consistency if needed by hfl.score_groups
-    user_membership_dict_for_bbn = {}
-    for group_idx, user_list in enumerate(groups_for_bbn):
-        for user_id in user_list:
-            user_membership_dict_for_bbn[user_id] = group_idx # group_idx serves as group_id
-    
-    current_round_record["user_membership"] = user_membership_dict_for_bbn # Log FL grouping
-    
-    
-
-    # --- 4. Get group observations for BBN
-    # TODO: we need to aggregate the users groups based on groups_for_bbn and gradients list
-    # TODO: we need to score groups based on their gradients (the observation function) from 0 to 1. group-gradients -> probability of being malicious from 0 to 1.
-    # output is group_observations_for_bbn (dict group_id -> scaled_score_0_to_1)
-    current_round_record["group_scores_observed"] = group_observations_for_bbn.copy()
-
-    # --- 6. BBN Update Step --- #CAREFUL: THE FUNCTION WILL KEEP INITIALIZING BBN BECAUSE IT IS CALLED IN FOR EACH FL ROUND. IS THIS EXPECTED? 
-    bbn_instance = IterativeBBN(number_of_users, heirichal_params['bbn_config'])
-    bbn_instance.build_iteration_network(current_node_fault_probs, groups_for_bbn)
-    bbn_instance.set_group_observations(group_observations_for_bbn)
-    updated_node_fault_probs = bbn_instance.infer_node_posteriors()
-    
-    heirichal_params['user_score'] = updated_node_fault_probs # Update main user scores with BBN posteriors
-    current_round_record["user_scores"] = updated_node_fault_probs.tolist()
-    current_round_record["user_score_adjustment"] = (updated_node_fault_probs - current_node_fault_probs).tolist()
+    bp_state = graph.to_bp_state()  # convert to BP state
+    bp = BP(bp_state, temperature=1.0)  # create BP object
+    bp_arrays = bp.run(max_iter=100, tol=1e-5)  # run BP inference # or use damping
+    beliefs = bp.get_beliefs(bp_arrays)  # get beliefs
+    marginals = get_marginals(beliefs)  # get marginals
 
 
-    # --- 7. Robust Aggregation using BBN-updated probabilities ---
-    # TODO: from the groups_for_bbn, give zero weight to the group that the suspected malicious user in it.
-    # then give weights to the groups based on the BBN probabilities of the users in the groups. 
-    #Then simply aggregate the gradients of the groups using simple weighted average. (dont implement or use a funcion, just do it here)
 
-
-    # --- 8. Logging ---
-    current_round_record["global_gradient"] = robust_update.clone().detach()
-    heirichal_params["history"].append(current_round_record)
-    
-    # Assuming utils.save_data_to_csv exists and works with heirichal_params
-    # utils.save_data_to_csv(heirichal_params, f) 
-
-    # --- 9. Return heirichal_params ---
-    return heirichal_params
 
 import pandas as pd
 from visualize_scoringfunction import round_full_scores

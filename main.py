@@ -164,8 +164,11 @@ def parse_args():
     #assumed number of malcious users percentage. assumed_mal_prct
     parser.add_argument("--assumed_mal_prct", help="assumed number of malcious users percentage", type=float, default=0.1)
 
-
-
+    # bayesian FL
+    # num_groups, gradient_threshold=0.5, aggregation_method='average'
+    parser.add_argument("--num_groups", help="number of groups for bayesian FL", type=int, default=5)
+    parser.add_argument("--gradient_threshold", help="threshold for selecting gradients in bayesian FL", type=float, default=0.5)
+    parser.add_argument("--aggregation_method", help="method for aggregating gradients in bayesian FL", type=str, default="sum")
 
     ### Attacks
     parser.add_argument("--nbyz", help="# byzantines", type=int, default=6)
