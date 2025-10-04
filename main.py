@@ -40,7 +40,7 @@ def save_results_to_csv(runs_test_accuracy, runs_backdoor_success, test_iteratio
     import numpy as np
     
     # Create results directory if it doesn't exist
-    os.makedirs("results", exist_ok=True)
+    os.makedirs("results3rdOct", exist_ok=True)
     
     # Convert to numpy arrays to better handle dimensions
     runs_test_accuracy = np.array(runs_test_accuracy)
@@ -67,7 +67,7 @@ def save_results_to_csv(runs_test_accuracy, runs_backdoor_success, test_iteratio
     
     # Save test accuracy
     test_acc_df = pd.DataFrame(runs_test_accuracy, columns=column_names)
-    test_acc_df.to_csv(f"results/accuracy_{args.dataset}_{args.aggregation}_{args.byz_type}_n{args.nruns}.csv", index=False)
+    test_acc_df.to_csv(f"results3rdOct/accuracy_{args.dataset}_{args.aggregation}_{args.byz_type}_n{args.nruns}_bias{args.bias}.csv", index=False)
     
     # Save backdoor success rate if available
     if args.byz_type == "scaling_attack":
@@ -79,10 +79,10 @@ def save_results_to_csv(runs_test_accuracy, runs_backdoor_success, test_iteratio
             runs_backdoor_success = runs_backdoor_success.reshape(1, -1)
             
         backdoor_df = pd.DataFrame(runs_backdoor_success, columns=column_names)
-        backdoor_df.to_csv(f"results/backdoor_{args.dataset}_{args.aggregation}_{args.byz_type}_n{args.nruns}.csv", index=False)
+        backdoor_df.to_csv(f"results3rdOct/backdoor_{args.dataset}_{args.aggregation}_{args.byz_type}_n{args.nruns}_bias{args.bias}.csv", index=False)
     
     # Save configuration
-    with open(f"results/config_{args.dataset}_{args.aggregation}_{args.byz_type}_n{args.nruns}.txt", 'w') as f:
+    with open(f"results3rdOct/config_{args.dataset}_{args.aggregation}_{args.byz_type}_n{args.nruns}_bias{args.bias}.txt", 'w') as f:
         for arg, value in vars(args).items():
             f.write(f"{arg}: {value}\n")
 
@@ -213,17 +213,42 @@ def get_device(device):
     return ctx
 
 
-def get_net(net_type, num_inputs, num_outputs=10):
+def get_net(net_type, num_inputs, num_outputs=10, dataset= None, resnet_pretrained=False):
     """
     Selects the model architecture.
     net_type: name of the model architecture
     num_inputs: number of inputs of model
     num_outputs: number of outputs/classes
     """
+    DATASET_NUM_CLASSES = {"CIFAR10": 10, "CIFAR100": 100, "MNIST": 10, "FEMNIST": 62}
+    if dataset is not None:
+        num_classes = DATASET_NUM_CLASSES.get(dataset.upper())
     if net_type == "lr":
         import models.lr as lr
         net = lr.LinearRegression(input_dim=num_inputs, output_dim=num_outputs)
         #print(net)
+    elif net_type == "dnn":
+        import models.lr as lr
+        net = lr.DNN(input_dim=num_inputs, output_dim=num_outputs)
+    elif net_type in {"resnet18", "resnet20", 'resnet'}:
+        from models import resnet as resnet_models
+
+        if dataset is None:
+            raise ValueError("Dataset must be specified when using a ResNet model")
+        elif dataset == "FEMNIST" or dataset == "MNIST":
+            net_type = "resnet18"
+        elif dataset == "CIFAR10" or dataset == "CIFAR100":
+            net_type = "resnet18"
+        
+
+        input_shape = resnet_models.infer_image_shape(num_inputs, dataset)
+        net = resnet_models.ResNetClassifier(
+            arch=net_type,
+            input_shape=input_shape,
+            num_classes=num_outputs,
+            pretrained=resnet_pretrained,
+        )
+
     else:
         raise NotImplementedError
     return net
@@ -431,10 +456,14 @@ def weight_init(m):
     Initializes the weights of the layer with random values.
     m: the layer which gets initialized
     """
+    
+
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
         nn.init.xavier_uniform_(m.weight, gain=2.24)
         if m.bias is not None:
             torch.nn.init.zeros_(m.bias)
+
+    
 
 
 def main(args):
@@ -467,7 +496,7 @@ def main(args):
     backdoor_success_list = []
 
     # model
-    net = get_net(args.net, num_outputs=num_outputs, num_inputs=num_inputs)
+    net = get_net(args.net, num_outputs=num_outputs, num_inputs=num_inputs, dataset=args.dataset)
     net = net.to(device)
     num_params = torch.cat([xx.reshape((-1, 1)) for xx in net.parameters()], dim=0).size()[0]  # used for FLOD to determine threshold
     # loss
@@ -539,7 +568,8 @@ def main(args):
             random.seed(args.seed)
             np.random.seed(args.seed)
 
-        net.apply(weight_init)  # initialization of model
+        if args.net not in {"resnet18", "resnet20"}:
+            net.apply(weight_init)  # initialization of model
 
         # set aggregation specific variables
         if args.aggregation == "shieldfl":
@@ -571,6 +601,25 @@ def main(args):
                     "assumed_mal_prct":assumed_mal_prct , "user membership": [], "user score": [0 for i in range(n_users)], "round": 0, "num groups": n_groups, \
                                     "history": [{'round_num': int, 'user_membership': list, 'user_score_adjustment': list, \
                                                  'group_scores': list,"user_scores": list, "global_gradient": torch.tensor}]}
+                
+        elif args.aggregation == 'factorGraphs':
+            if run == 1:
+                factorGraph_params = {
+                    'num_rounds': args.niter,
+                    'mixing_rounds': 100,
+                    'initial_threshold': 1.0,
+                    'group_size': 5,
+                    'observation_method': 'binarySignguard',
+                    'likelihood_sigma': 2, # higher sigma means more tolerance to different gradients
+                    'true_negative_rate': 0.7,
+                    'true_positive_rate': 0.7,
+                    'shuffling_strategy': "random", # or "random"
+                    'prob_sort_temp': 0.1,
+                    'use_sg': True
+
+                }
+                
+
             
 
         train_data, test_data = data_loaders.load_data(args.dataset, args.seed)  # load the data
@@ -605,8 +654,13 @@ def main(args):
 
                 # perform local training for each worker
                 for i in range(args.nworkers):
-                    minibatch = np.random.choice(list(range(each_worker_data[i].shape[0])), size=args.batch_size, replace=False)
-
+                    if args.batch_size > 0:
+                        if each_worker_data[i].shape[0] > args.batch_size:
+                            minibatch = np.random.choice(list(range(each_worker_data[i].shape[0])), size=args.batch_size, replace=False)
+                        else:
+                            minibatch = list(range(each_worker_data[i].shape[0]))
+                    elif args.batch_size == 0:
+                        minibatch = list(range(each_worker_data[i].shape[0]))
                     net.zero_grad()
                     with torch.enable_grad():
                         output = net(each_worker_data[i][minibatch])
@@ -677,7 +731,9 @@ def main(args):
                     
                     
                     heirichal_params = aggregation_rules.heirichalFL(grad_list, net, args.lr, args.nbyz, byz, device, heirichal_params, seed=args.seed)
+                elif args.aggregation == "factorGraphs":
 
+                    factorGraph_params = aggregation_rules.factorGraphs(grad_list, net, args.lr, args.nbyz, byz, device, factorGraph_params)
                 else:
                     raise NotImplementedError
 

@@ -1,5 +1,221 @@
 import numpy as np
 import torch
+from itertools import combinations
+from functools import lru_cache
+from tqdm import tqdm 
+# =========================
+# Exhaustive, deterministic scheduler (convex repeat penalty)
+# =========================
+from typing import List, Tuple
+
+def _cyclic_schedule(v: int, group_size: int, rounds: int) -> List[List[Tuple[int, ...]]]:
+    """
+    Deterministic cyclic schedule:
+      - Users are 0..v-1 placed column-wise into m = floor(v / group_size) base groups.
+      - Round r shifts indices by +r mod v (or equivalently rotates rows), yielding new groups.
+      - If v % group_size != 0, we keep a rotating overflow bench; each round one group
+        absorbs a few overflow users so load is spread fairly.
+
+    Returns:
+      schedule[r] = list of groups (each a tuple of user ids), partitioning 0..v-1.
+    """
+    if group_size < 2:
+        raise ValueError("group_size must be >= 2")
+
+    m = v // group_size                  # number of full groups
+    overflow = v - m * group_size        # users left after filling m groups
+    users = list(range(v))
+
+    # Base layout: column-wise fill (group j has indices j, j+m, j+2m, ...)
+    base_groups = []
+    for j in range(m):
+        base_groups.append(tuple(j + k * m for k in range(group_size)))
+
+    # Overflow list: the last 'overflow' user ids (deterministic choice)
+    overflow_ids = list(range(m * group_size, v)) if overflow > 0 else []
+
+    schedule: List[List[Tuple[int, ...]]] = []
+
+    for r in range(rounds):
+        # Shift every user id by +r mod v (cyclic “round-robin”)
+        def sh(x: int) -> int:
+            return (x + r) % v
+
+        round_groups = [tuple(sh(x) for x in g) for g in base_groups]
+
+        # Distribute overflow fairly: each round, attach the rotated overflow users
+        # to a different group so the extra size rotates deterministically.
+        if overflow > 0:
+            # Rotate which base group receives extras this round
+            target_gid = r % m if m > 0 else 0
+            # Rotate which overflow users get attached this round
+            rot = r % max(overflow, 1)
+            extras = [sh(overflow_ids[(i + rot) % overflow]) for i in range(overflow)]
+            # Attach all extras to a single group (simplest fair spread over rounds)
+            # If you prefer spreading across several groups, you can scatter them.
+            if m == 0:
+                # No full groups exist (v < group_size). Single group is all users.
+                round_groups = [tuple(sh(x) for x in range(v))]
+            else:
+                # Attach extras
+                g_as_list = list(round_groups[target_gid])
+                g_as_list.extend(extras)
+                round_groups[target_gid] = tuple(sorted(g_as_list))
+
+        # Canonicalize: sort members in each group, and groups by their smallest member
+        round_groups = [tuple(sorted(g)) for g in round_groups]
+        round_groups.sort(key=lambda t: (t[0], t))
+        schedule.append(round_groups)
+
+    return schedule
+
+def _canonical_partitions(users, group_sizes):
+    """
+    Yield all partitions of 'users' (sorted tuple of ints) into groups whose sizes are 'group_sizes'
+    (list of ints), without duplicates, in deterministic lexicographic order.
+
+    Symmetry breaking:
+      • Always anchor the smallest remaining user when forming the next group.
+      • Choose companions as combinations of larger remaining users.
+      • Sort group_sizes (descending) so equal-size groups are canonical.
+    """
+    users = tuple(sorted(users))
+    group_sizes = tuple(sorted(group_sizes, reverse=True))
+
+    @lru_cache(maxsize=None)
+    def rec(remaining_users, remaining_sizes):
+        remaining_users = list(remaining_users)
+        if not remaining_sizes:
+            yield ()
+            return
+
+        k = remaining_sizes[0]
+        # anchor = smallest remaining user
+        anchor = remaining_users[0]
+        rest = remaining_users[1:]
+
+        # pick the other k-1 members for this group
+        for companions in combinations(rest, k - 1):
+            group = (anchor,) + companions
+
+            used = set(group)
+            nxt_users = tuple(u for u in remaining_users if u not in used)
+
+            for tail in rec(nxt_users, remaining_sizes[1:]):
+                yield (group,) + tail
+
+    return rec(tuple(users), tuple(group_sizes))
+
+
+def _convex_increment_for_round(groups, pair_count):
+    """
+    Convex repeat penalty:
+      For each pair (u,v) in this round's groups, add current pair_count[(u,v)] to the cost.
+      (First time together: adds 0; second time: +1; third time: +2; ...)
+    """
+    inc = 0
+    for g in groups:
+        g = tuple(g)
+        for i in range(len(g)):
+            for j in range(i + 1, len(g)):
+                u, v = g[i], g[j]
+                if u > v: u, v = v, u
+                inc += pair_count.get((u, v), 0)
+    return inc
+
+
+def _apply_round(groups, pair_count):
+    """Return updated pair_count after applying this round's groups."""
+    new_pc = pair_count.copy()
+    for g in groups:
+        g = tuple(g)
+        for i in range(len(g)):
+            for j in range(i + 1, len(g)):
+                u, v = g[i], g[j]
+                if u > v: u, v = v, u
+                new_pc[(u, v)] = new_pc.get((u, v), 0) + 1
+    return new_pc
+
+
+def _sizes_sequence(v, K, X, m=None, rotate_sizes=True):
+    """
+    Replicates your size logic:
+      - If m is None: m = v // K; distribute remainder as +1 to first t groups.
+      - If rotate_sizes: rotate which groups get the +1 extras each round.
+    Returns: list[list[int]] of sizes for each round.
+    """
+    if v < K:
+        raise ValueError("v must be >= K")
+    if m is None:
+        m = v // K
+        if m == 0:
+            raise ValueError("With m=None, v must be at least K")
+    else:
+        if v < m * K:
+            raise ValueError(f"Need v >= m*K = {m*K}, got v={v}")
+
+    remainder = v - m * K
+    q, t = divmod(remainder, m) if m > 0 else (0, 0)
+    base = [K + q + (1 if i < t else 0) for i in range(m)]
+
+    def sizes_for_round(r):
+        if not rotate_sizes or m == 0:
+            return list(base)
+        shift = r % m
+        return base[-shift:] + base[:-shift]
+
+    sizes_per_round = [sizes_for_round(r) for r in range(X)]
+    # Validate
+    for s in sizes_per_round:
+        if sum(s) != v:
+            raise ValueError("Sizes must partition all users each round")
+    return sizes_per_round
+
+
+def schedule_exhaustive_min_pair_repeats(v, K, X, m=None, rotate_sizes=True, max_cost=float('inf')):
+    """
+    Deterministic exhaustive search with branch-and-bound under a convex repeat penalty.
+    Returns: (schedule, best_cost, sizes_per_round)
+      - schedule[r] is a list of groups (each group is a tuple of user ids).
+    """
+    sizes_per_round = _sizes_sequence(v, K, X, m=m, rotate_sizes=rotate_sizes)
+    users = tuple(range(v))
+    R = len(sizes_per_round)
+    print("step 1 done")
+    # Precompute all canonical partitions per round (deterministic order)
+    all_round_parts = []
+    for sizes in tqdm(sizes_per_round):
+        parts = list(_canonical_partitions(users, sizes))
+        parts.sort()  # canonical order of tuple-of-tuples
+        all_round_parts.append(parts)
+    print("step 2 done")
+    # Lower bound: convex increment is always >= 0, so we only use running best to prune.
+    best_sched = None
+    best_cost = max_cost
+    init_pc = {}
+
+    def bt(r, pair_count, acc_cost, partial):
+        nonlocal best_sched, best_cost
+        if acc_cost >= best_cost:
+            return
+        if r == R:
+            best_cost = acc_cost
+            best_sched = [list(map(tuple, gs)) for gs in partial]
+            return
+
+        for groups in all_round_parts[r]:
+            inc = _convex_increment_for_round(groups, pair_count)
+            new_cost = acc_cost + inc
+            if new_cost >= best_cost:
+                continue
+            new_pc = _apply_round(groups, pair_count)
+            bt(r + 1, new_pc, new_cost, partial + [groups])
+
+    bt(0, init_pc, 0, [])
+    print("step 3 done")
+    if best_sched is None:
+        raise RuntimeError("No schedule found; check sizes_per_round validity.")
+    return best_sched, best_cost, sizes_per_round
 
 def initialize_grouping_params(num_users, min_users_per_group=2, gradient_threshold=0.5, aggregation_method='average'):
     """
@@ -268,6 +484,435 @@ def get_grouping_statistics(grouping_params):
     }
     return stats
 
+
+import random
+def _group_and_sum_gradients(param_list, bayesian_params):
+    if bayesian_params.get("shuffling_strategy", "random") == 'mixed':
+        if bayesian_params.get("current_round", 0) <= bayesian_params.get("mixing_rounds", 100):
+            strategy = "greedy"
+        else:
+            strategy = "by_maliciousness"
+    if bayesian_params.get("shuffling_strategy", "random") == 'mixed_optimal':
+        if bayesian_params.get("current_round", 0) <= bayesian_params.get("mixing_rounds", 100):
+            strategy = "cyclic"
+
+        else:
+            strategy = 'by_maliciousness'
+
+    else:
+
+        strategy = bayesian_params.get("shuffling_strategy", "random")
+
+    
+
+    if strategy == "random":
+        # users included
+        gradients_included = {id: grad for id, grad in enumerate(param_list)}
+
+        # shuffle IDs
+        shuffled_ids = list(gradients_included.keys())
+        random.shuffle(shuffled_ids)
+        gradients_included = {id: gradients_included[id] for id in shuffled_ids}
+
+        # group IDs
+        group_size = bayesian_params.get("group_size", 2)
+        # ensure that all groups have the group size, if not divisible ensure the last group has more than the group size.
+        groups = {}
+        group_id = 0
+        ids_list = list(gradients_included.keys())
+
+        for i in range(0, len(ids_list), group_size):
+            group_indices = ids_list[i:i + group_size]
+            
+            # If this is the last group and it's smaller than group_size, merge with previous group
+            if len(group_indices) < group_size and group_id > 0:
+                # Merge with the previous group
+                groups[group_id - 1] = (group_id - 1, groups[group_id - 1][1] + group_indices)
+            else:
+                groups[group_id] = (group_id, group_indices)
+                group_id += 1
+
+        # Extract group gradients
+        group_gradients = {}
+        for gid, (_, indices) in groups.items():
+            # compute global model update
+            gradients_to_be_summed = [gradients_included[idx] for idx in indices]
+            group_gradients[gid]  = torch.sum(torch.stack(gradients_to_be_summed), dim=0)
+
+    elif strategy  == "by_maliciousness":
+        # users included
+        gradients_included = {id: grad for id, grad in enumerate(param_list)}
+        # sort by maliciousness
+        latent_variables = bayesian_params.get("latent_variables", {})
+        sorted_ids = sorted(gradients_included.keys(), key=lambda x: latent_variables.get(x, 0.5))
+        
+
+        # group IDs
+        group_size = bayesian_params.get("group_size", 2)
+        # ensure that all groups have the group size, if not divisible ensure the last group has more than the group size.
+        groups = {}
+        group_id = 0
+
+        for i in range(0, len(sorted_ids), group_size):
+            group_indices = sorted_ids[i:i + group_size]
+            
+            # If this is the last group and it's smaller than group_size, merge with previous group
+            if len(group_indices) < group_size and group_id > 0:
+                # Merge with the previous group
+                groups[group_id - 1] = (group_id - 1, groups[group_id - 1][1] + group_indices)
+            else:
+                groups[group_id] = (group_id, group_indices)
+                group_id += 1
+
+        # Extract group gradients
+        group_gradients = {}
+        for gid, (_, indices) in groups.items():
+            # compute global model update
+            gradients_to_be_summed = [gradients_included[idx] for idx in indices]
+            group_gradients[gid]  = torch.sum(torch.stack(gradients_to_be_summed), dim=0)
+
+    elif strategy == "greedy":
+        round_id = bayesian_params.get("current_round", 0)
+        if round_id == 0:
+            #initialze schedule 
+            global_best, global_best_stats, global_best_sizes = schedule_min_size_K(
+                v=len(param_list), 
+                K=bayesian_params.get("group_size", 2), 
+                X=bayesian_params.get("mixing_rounds", 10) + 1, 
+                attempts_per_round=bayesian_params.get("attempts_per_round", 5), 
+                restarts=bayesian_params.get("restarts", 2),
+                seed=bayesian_params.get("seed", 42),
+                triple_penalty=bayesian_params.get("triple_penalty", 2),
+                rotate_sizes=bayesian_params.get("rotate_sizes", True)
+            )
+
+            bayesian_params["schedule"] = global_best
+
+
+        schedule = bayesian_params["schedule"]
+        current_round_schedule = schedule[round_id]
+        groups = {
+            gid: (gid, list(group))
+            for gid, group in enumerate(current_round_schedule)
+
+        }
+
+        # Extract group gradients
+        group_gradients = {}
+        for gid, (_, indices) in groups.items():
+            # compute global model update
+            gradients_to_be_summed = [param_list[idx] for idx in indices]
+            group_gradients[gid]  = torch.sum(torch.stack(gradients_to_be_summed), dim=0)
+
+    elif strategy == "prob_by_maliciousness":
+        # users included
+        gradients_included = {id: grad for id, grad in enumerate(param_list)}
+
+        latent_variables = bayesian_params.get("latent_variables", {})
+        temperature = bayesian_params.get("prob_sort_temp", 0.2)  # controls randomness
+
+        # Create noisy scores for probabilistic sort
+        noisy_scores = {
+            uid: latent_variables.get(uid, 0.5) + random.uniform(-temperature, temperature)
+            for uid in gradients_included.keys()
+        }
+
+        # Sort by noisy scores
+        sorted_ids = sorted(noisy_scores.keys(), key=lambda x: noisy_scores[x])
+
+        # group IDs
+        group_size = bayesian_params.get("group_size", 2)
+        groups = {}
+        group_id = 0
+
+        for i in range(0, len(sorted_ids), group_size):
+            group_indices = sorted_ids[i:i + group_size]
+
+            # If this is the last group and it's smaller than group_size, merge with previous group
+            if len(group_indices) < group_size and group_id > 0:
+                groups[group_id - 1] = (group_id - 1, groups[group_id - 1][1] + group_indices)
+            else:
+                groups[group_id] = (group_id, group_indices)
+                group_id += 1
+
+        # Extract group gradients
+        group_gradients = {}
+        for gid, (_, indices) in groups.items():
+            gradients_to_be_summed = [gradients_included[idx] for idx in indices]
+            group_gradients[gid] = torch.sum(torch.stack(gradients_to_be_summed), dim=0)
+
+
+    elif strategy == 'optimal':
+        # Build (once) a fully-deterministic, convex-penalty-minimizing schedule across the mixing window
+        round_id = bayesian_params.get("current_round", 0)
+        if round_id == 0 or "schedule" not in bayesian_params:
+            v = len(param_list)
+            K = bayesian_params.get("group_size", 2)
+            X = bayesian_params.get("mixing_rounds", 10) + 1  # same as your greedy branch
+            m = bayesian_params.get("num_groups", None)       # optional: let user override m
+            rotate = bayesian_params.get("rotate_sizes", True)
+
+            schedule, best_cost, sizes_per_round = schedule_exhaustive_min_pair_repeats(
+                v=v, K=K, X=X, m=m, rotate_sizes=rotate
+            )
+            bayesian_params["schedule"] = schedule
+            bayesian_params["schedule_cost"] = best_cost
+            bayesian_params["sizes_per_round"] = sizes_per_round
+
+        schedule = bayesian_params["schedule"]
+        current_round_schedule = schedule[round_id]
+
+        # Materialize groups dict in your expected format
+        groups = {gid: (gid, list(group)) for gid, group in enumerate(current_round_schedule)}
+
+        # Extract group gradients
+        group_gradients = {}
+        for gid, (_, indices) in groups.items():
+            grads = [param_list[idx] for idx in indices]
+            group_gradients[gid] = torch.sum(torch.stack(grads), dim=0)
+
+    elif strategy == "cyclic":
+        # Deterministic, user-balanced cyclic schedule (no search).
+        v = len(param_list)
+        K = bayesian_params.get("group_size", 2)
+        # How many rounds do you want to precompute? Usually your mixing window + 1,
+        # mirroring your greedy/optimal branches:
+        X = bayesian_params.get("mixing_rounds", 10) + 1
+
+        round_id = bayesian_params.get("current_round", 0)
+
+        if round_id == 0 or "schedule" not in bayesian_params:
+            schedule = _cyclic_schedule(v=v, group_size=K, rounds=X)
+            bayesian_params["schedule"] = schedule
+            # Optional: store the theoretical max rounds with no pair repeats
+            bayesian_params["max_no_repeat_rounds"] = (v - 1) // (K - 1) if K > 1 else 0
+
+        schedule = bayesian_params["schedule"]
+        current_round_schedule = schedule[round_id]
+
+        # Produce your expected groups dict
+        groups = {
+            gid: (gid, list(group))
+            for gid, group in enumerate(current_round_schedule)
+        }
+
+        # Sum gradients per group
+        group_gradients = {}
+        for gid, (_, indices) in groups.items():
+            gradients_to_be_summed = [param_list[idx] for idx in indices]
+            group_gradients[gid] = torch.sum(torch.stack(gradients_to_be_summed), dim=0)
+
+
+    else:
+        raise ValueError(f"Unknown shuffling strategy: {bayesian_params.get('shuffling_strategy')}")
+
+
+
+
+    return groups, group_gradients
+
+from collections import defaultdict
+from itertools import combinations
+def _SG_group_and_sum_gradients(param_list, bayesian_params):
+
+    sg_aggregators_len = bayesian_params.get('sg_aggregators_len', 5)
+    n = len(param_list)
+    seed = bayesian_params.get('seed', 47)
+    rng = random.Random(seed)
+    indices = list(range(n))
+    rng.shuffle(indices)
+    sg_agg_assignment = {}
+    for agg_id in range(sg_aggregators_len):
+        for idx in indices[agg_id::sg_aggregators_len]:
+            sg_agg_assignment[idx] = agg_id
+    agg_to_ids = defaultdict(list)
+
+    for cid, aid in sg_agg_assignment.items():
+        agg_to_ids[aid].append(cid)
+
+
+    strategy = bayesian_params.get("shuffling_strategy", "random")
+
+
+
+    
+
+    if strategy == "random":
+        # randomly pick 10% of each aid
+        randomly_picked_pct_from_sg_agg = bayesian_params.get('randomly_picked_pct_from_sg_agg', 0.1)
+        selected_ids = []
+        for aid, ids in agg_to_ids.items():
+            k = max(2, int(randomly_picked_pct_from_sg_agg * len(ids)))
+            selected_ids.extend(rng.sample(ids, k))
+
+        
+
+        # Extract group gradients
+        group_gradients = {}
+        for aid, indices in agg_to_ids.items():
+            # compute global model update
+            gradients_to_be_summed = [param_list[idx] for idx in indices if idx in selected_ids]
+            group_gradients[aid]  = torch.sum(torch.stack(gradients_to_be_summed), dim=0)
+        groups = {aid: (aid, indices) for aid, indices in agg_to_ids.items()}
+        return groups, group_gradients
+    else:
+        raise ValueError(f"Unknown shuffling strategy: {bayesian_params.get('shuffling_strategy')}")
+
+
+
+
+def schedule_min_size_K(v, K, X, m=None, attempts_per_round=400, restarts=1,
+                        seed=None, triple_penalty=0.0, rotate_sizes=True):
+    """
+    Schedule v users into groups across X rounds such that:
+      • Each round partitions all users.
+      • Every group has size >= K (no dummies).
+      • If m is provided, each round has exactly m groups (requires v >= m*K).
+      • If m is None, it uses m = v // K (max number of groups),
+        and distributes the remainder as +1s to some groups.
+      • Across rounds, it greedily minimizes repeated pairings.
+
+    Parameters
+    ----------
+    v : int
+        Number of users (0..v-1).
+    K : int
+        Minimum group size (per group, per round).
+    X : int
+        Number of rounds.
+    m : int or None
+        Groups per round. If None, uses floor(v/K).
+    attempts_per_round : int
+        Random candidate partitions tried per round (higher → better, slower).
+    restarts : int
+        Global restarts; best schedule kept.
+    seed : int or None
+        Random seed for reproducibility.
+    triple_penalty : float
+        Optional extra penalty for repeated triples (k>=3). Use 0.0 to disable.
+    rotate_sizes : bool
+        If True, cyclically rotates which groups get the +1 extras each round
+        to balance large-group exposure.
+
+    Returns
+    -------
+    schedule : list[list[tuple]]
+        schedule[r] is a list of groups (tuples of user ids) for round r.
+    stats : dict
+        Summary (pair_count, max_pair_repeats, avg_pair_repeats, cost).
+    sizes_per_round : list[list[int]]
+        The exact group sizes used in each round (each >= K).
+    """
+    if v < K:
+        raise ValueError("v must be >= K; otherwise you cannot form any group with size >= K.")
+
+    rng = random.Random(seed)
+
+    # Decide number of groups m and the base size pattern for one round
+    if m is None:
+        m = v // K  # as many groups as possible subject to min size K
+        if m == 0:
+            # Only possible group is the whole set, but that would be < K, already handled above
+            raise ValueError("With m=None, v must be at least K to form any group.")
+    else:
+        if v < m * K:
+            raise ValueError(f"Given m={m} and K={K}, need v >= m*K = {m*K} (got v={v}).")
+
+    remainder = v - m * K  # total "extra seats" to distribute across m groups
+    q, t = divmod(remainder, m) if m > 0 else (0, 0)
+
+    # Base size vector: K + q everywhere, and +1 on the first t groups.
+    base_sizes = [K + q + (1 if i < t else 0) for i in range(m)]
+
+    def sizes_for_round(rnd_idx):
+        if not rotate_sizes or m == 0:
+            return list(base_sizes)
+        # Rotate extras to balance who ends up in larger groups across rounds
+        shift = rnd_idx % m
+        return base_sizes[-shift:] + base_sizes[:-shift]
+
+    # Cost function based on pair/triple reuse
+    def partition_cost(groups, pair_count, triple_count):
+        c = 0.0
+        for g in groups:
+            # Pairs
+            for a, b in combinations(g, 2):
+                key = (a, b) if a < b else (b, a)
+                pc = pair_count[key]
+                c += pc * pc
+            # Triples (optional)
+            if triple_penalty > 0 and len(g) >= 3:
+                for a, b, c3 in combinations(g, 3):
+                    key3 = tuple(sorted((a, b, c3)))
+                    tc = triple_count[key3]
+                    c += triple_penalty * (tc * tc)
+        return c
+
+    def update_counts(groups, pair_count, triple_count):
+        for g in groups:
+            for a, b in combinations(g, 2):
+                key = (a, b) if a < b else (b, a)
+                pair_count[key] += 1
+            if triple_penalty > 0 and len(g) >= 3:
+                for a, b, c3 in combinations(g, 3):
+                    key3 = tuple(sorted((a, b, c3)))
+                    triple_count[key3] += 1
+
+    # Build schedule with possible restarts, keep best
+    global_best = None
+    global_best_stats = None
+    global_best_sizes = None
+
+    for _ in range(restarts):
+        users = list(range(v))
+        pair_count = defaultdict(int)
+        triple_count = defaultdict(int)
+        sched = []
+        sizes_seq = []
+        total_cost = 0.0
+
+        for rnd in range(X):
+            sizes = sizes_for_round(rnd)
+            sizes_seq.append(list(sizes))
+
+            best_groups = None
+            best_score = float("inf")
+
+            # Try many random permutations, slice into the target sizes, pick lowest cost
+            for _try in range(attempts_per_round):
+                rng.shuffle(users)
+                groups = []
+                idx = 0
+                for sz in sizes:
+                    groups.append(tuple(users[idx:idx+sz]))
+                    idx += sz
+                # (idx should be exactly v)
+                score = partition_cost(groups, pair_count, triple_count)
+                if score < best_score:
+                    best_score = score
+                    best_groups = groups
+
+            sched.append(best_groups)
+            total_cost += best_score
+            update_counts(best_groups, pair_count, triple_count)
+
+        # Summarize pair statistics
+        counts = list(pair_count.values())
+        max_rep = max(counts) if counts else 0
+        avg_rep = (sum(counts) / len(counts)) if counts else 0.0
+        stats = {
+            "pair_count": dict(pair_count),
+            "max_pair_repeats": max_rep,
+            "avg_pair_repeats": avg_rep,
+            "cost": total_cost,
+        }
+
+        if global_best is None or stats["cost"] < global_best_stats["cost"]:
+            global_best = sched
+            global_best_stats = stats
+            global_best_sizes = sizes_seq
+
+    return global_best, global_best_stats, global_best_sizes
 
 # Example usage
 if __name__ == "__main__":

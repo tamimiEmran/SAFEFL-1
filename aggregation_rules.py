@@ -1,11 +1,9 @@
-from asyncio import graph
+#from asyncio import graph
 import attacks
-
 import math
 import os
 import collections
 from functools import reduce
-
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -15,7 +13,7 @@ import hdbscan
 import copy
 import utils
 import heirichalFL as hfl
-
+from scipy.stats import norm
 # Copyright (c) 2015, Leland McInnes
 # All rights reserved.
 # Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -685,6 +683,46 @@ def contra(gradients, net, lr, f, byz, device, gradient_history, reputation, cos
         idx += torch.numel(param)
 
     return gradient_history, reputation, cos_dist
+def _group_and_sum_gradientsFORSIGNGUARD(param_list):
+    # users included
+    gradients_included = {id: grad for id, grad in enumerate(param_list)}
+
+    # shuffle IDs
+    shuffled_ids = list(gradients_included.keys())
+    random.shuffle(shuffled_ids)
+    gradients_included = {id: gradients_included[id] for id in shuffled_ids}
+
+    # group IDs
+    group_size = 2
+    # ensure that all groups have the group size, if not divisible ensure the last group has more than the group size.
+    groups = {}
+    group_id = 0
+    ids_list = list(gradients_included.keys())
+
+    for i in range(0, len(ids_list), group_size):
+        group_indices = ids_list[i:i + group_size]
+        
+        # If this is the last group and it's smaller than group_size, merge with previous group
+        if len(group_indices) < group_size and group_id > 0:
+            # Merge with the previous group
+            groups[group_id - 1] = (group_id - 1, groups[group_id - 1][1] + group_indices)
+        else:
+            groups[group_id] = (group_id, group_indices)
+            group_id += 1
+
+    # Extract group gradients
+    group_gradients = {}
+    for gid, (_, indices) in groups.items():
+        # compute global model update
+        gradients_to_be_summed = [gradients_included[idx] for idx in indices]
+        group_gradients[gid]  = torch.sum(torch.stack(gradients_to_be_summed), dim=0)
+
+    group_gradients = [group_gradients[gid] for gid in sorted(group_gradients.keys())]
+
+    return group_gradients
+
+
+from bayesian.benchmarkingGrouping import _group_and_sum_gradientsFORSIGNGUARD as signgaurd_sg_experiment
 
 def signguard(gradients, net, lr, f, byz, device, seed):
     """
@@ -698,11 +736,16 @@ def signguard(gradients, net, lr, f, byz, device, seed):
     seed: seed for randomness
     """
     param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
+    #print the shapes of the gradients
+
     # let the malicious clients (first f clients) perform the byzantine attack
     if byz == attacks.fltrust_attack:
         param_list = byz(param_list, net, lr, f, device)[:-1]
     else:
         param_list = byz(param_list, net, lr, f, device)
+
+
+    param_list = signgaurd_sg_experiment(param_list)    
     n = len(param_list)
 
     num_params = param_list[0].size(0)
@@ -754,7 +797,11 @@ def signguard(gradients, net, lr, f, byz, device, seed):
     global_update = torch.zeros(param_list[0].size()).to(device)
     for i in S:
         global_update += param_list[i]
-    global_update *= 1 / len(S)
+    
+    if len(S) > 0:
+        global_update *= 1 / len(S)
+    else:
+        global_update *= 0
 
     # update the global model
     idx = 0
@@ -1210,60 +1257,200 @@ def heirichalFL(gradients, net, lr, f, byz, device, heirichal_params, seed):
 
 
 
-from pgmax import fgraph
+from pgmax import fgraph, infer 
 from pgmax.factor import EnumFactor
 from itertools import product
 from pgmax.infer import BP, get_marginals
-from bayesian.grouping 
-# TODO: wrap the factor graph in a function, pass the observed_scores to it. 
-# TODO: pass names for the observation function, expectation function, and likelihood function
-# TODO: add the grouping logic and aggregation logic which includes excluding faulty nodes. 
-
-# What i want the grouping logic to do:
-# 1. group the gradients by the number of groups
-# 2. aggregate the gradients within each group by (averaging or summing)
-# 3. shuffle users before every round
-# 4. Take best gradients before group based on threshold
-
-def bayesian_fl_aggregation_rule(gradients, net, lr, f, byz, device, bayesian_params, seed):
-    """
-    Aggregation rule for FL using Bayesian inference to update node fault probabilities.
-    """
-    num_nodes = len(gradients)
-
-    observed_scores = observation_function(gradients)
+from bayesian.grouping import initialize_grouping_params, _group_and_sum_gradients, _SG_group_and_sum_gradients
+from bayesian.components import observation_function
+from bayesian.factor_graph import _maybe_init_bayesian_and_csv
+import random
 
 
-    # initialize the factor graph
-    graph = fgraph.FactorGraph()
-    graph.add_variables(num_nodes)  # F_1 … F_N
+def _apply_byzantine_attack_and_flatten(gradients, net, lr, f, byz, device):
+    # Flatten per-client gradients
+    param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
+    # let the malicious clients (first f clients) perform the byzantine attack
+    if byz == attacks.fltrust_attack:
+        param_list = byz(param_list, net, lr, f, device)[:-1]
+    else:
+        param_list = byz(param_list, net, lr, f, device)
+    return param_list
 
+
+
+
+
+
+
+
+def _run_inference_and_update(bayesian_params, graph, variables, groups, group_gradients,
+                              round_id, f, param_list, net, lr):
+    if "factor_store" not in bayesian_params:
+        bayesian_params["factor_store"] = {}
+        bayesian_params['skippedFactorsCount'] = 0
+
+
+
+    # observed group scores
+    observed_scores = observation_function(group_gradients, bayesian_params)
+
+    # write records to save to csv that includes round_id, group_id, numberOfMal, score
+
+
+
+    # build factors and run BP
     for group_id, indices in groups.values():
-        
-        indices_cardinality = [(i, 2) for i in indices]  # each node can be either faulty or not
+        group_key_for_factorGraphs = frozenset(indices)
+
+        group_variables = [variables[idx] for idx in indices]
         factor_configs = np.array(list(product([0,1], repeat=len(indices))))  # all combinations of faulty/not faulty for the group
 
         likelihoods = []  # likelihoods for each configuration
         for config in factor_configs:
-            #config is tuple
-            expectation_config = expectation_function(config)
-            likelihood_config = likelihood_function(observed_scores[group_id], expectation_config)
-            likelihoods.append(likelihood_config)
+            # config is tuple
+            obs = observed_scores[group_id]
+            exp = 1 if any(config) else 0  # expected observation: 1 if any faulty in group, else 0
+
+            if obs == 1:
+                p = bayesian_params.get("true_positive_rate", 0.8) if exp == 1 else (1 - bayesian_params.get("true_negative_rate", 0.8))
+            else:
+                p = (1 - bayesian_params.get("true_positive_rate", 0.8)) if exp == 1 else bayesian_params.get("true_negative_rate", 0.8)
+            likelihoods.append(np.log(p + 1e-10))  # add small value to avoid log(0)
 
         likelihoods = np.array(likelihoods)
-        factor = EnumFactor(factor_configs= factor_configs,
-                            variables= indices_cardinality,
-                            log_potentials= likelihoods)
-        
-        graph.add_factor(factor, indices)  # add the factor to the graph
+        if group_key_for_factorGraphs not in bayesian_params["factor_store"]:
+            factor = EnumFactor(
+                factor_configs=factor_configs,
+                variables=group_variables,
+                log_potentials= likelihoods
+            )
+            graph.add_factors(factor)  # add the factor to the graph
+            bayesian_params["factor_store"][group_key_for_factorGraphs] = factor
+
+        else:
+            factor = bayesian_params["factor_store"][group_key_for_factorGraphs]
+            #factor.log_potentials = likelihoods  # update the log potentials
+            bayesian_params['skippedFactorsCount'] += 1
     
-    bp_state = graph.to_bp_state()  # convert to BP state
-    bp = BP(bp_state, temperature=1.0)  # create BP object
-    bp_arrays = bp.run(max_iter=100, tol=1e-5)  # run BP inference # or use damping
+    
+    bp = BP(graph.bp_state, temperature=1.0)  # create BP object
+    bp_arrays = bp.init()  # initialize BP
+    bp_arrays = bp.run(bp_arrays, num_iters=100)  # run BP inference # or use damping
     beliefs = bp.get_beliefs(bp_arrays)  # get beliefs
     marginals = get_marginals(beliefs)  # get marginals
+    #print(f"Round {round_id}: Latent variable marginals: {len(marginals[variables])}")
+    # update round_id
+    bayesian_params["current_round"] = round_id + 1
+    # update latent_variables
+    bayesian_params["latent_variables"] = {i: marginals[variables][i, 1] for i in range(len(marginals[variables]))}
+
+    # update net using fedavg with weights based on 1 - latent_variable
+    global_update = torch.zeros_like(param_list[0])
+    weights = []
+    for g_id, gradient in group_gradients.items():
+        group_weights = []
+        hasMalUser = False
+        for u_id in groups[g_id][1]:
+            latent_var = bayesian_params["latent_variables"].get(u_id)
+            group_weights.append(float(1 - latent_var))
+            if u_id < f:
+                hasMalUser = True
+            
+
+        # take the minimum weight in the group as the weight for the group
+        weight = min(group_weights)
+
+        
+        if weight < 0.95:
+            weight = 0.0  # thresholding
+            if not hasMalUser:
+                pass
+                #print(f"Round {round_id}: Group {g_id} of {len(group_gradients)} groups has no malicious user but was filtered out with weight {min(group_weights):.4f}")
 
 
+
+        else:
+            if hasMalUser:
+                print(f"Round {round_id}: Group {g_id} with malicious user accepted with weight {weight:.4f}")
+    
+
+        weights.append(weight)
+        gradient *= weight
+        global_update += gradient
+
+    sum_weights = sum(weights)
+    if sum_weights > 1e-5:
+        global_update /= sum_weights
+
+    if round_id > 100:
+        idx = 0
+        for j, (param) in enumerate(net.parameters()):
+            param.add_(global_update[idx:(idx + torch.numel(param))].reshape(tuple(param.size())), alpha=-lr)
+            idx += torch.numel(param)
+    else:
+        pass
+        #print(f"Round {round_id}: Skipping model update to allow Bayesian model to warm up")
+    #print(f"Round {round_id}: Weights applied to each client: {weights}")
+    # skipped factors out of total factors
+    total_factors = len(bayesian_params["factor_store"])
+    if round_id > 1990:
+        pass
+        #print(f"Round {round_id}: Skipped {bayesian_params['skippedFactorsCount']} out of {total_factors} factors")
+    
+    records = []
+    for gid, score in observed_scores.items():
+        indices = groups[gid][1]
+        numberOfMal = sum([1 for idx in indices if idx < f])
+        record = {
+            "round_id": round_id,
+            "group_id": gid,
+            "numberOfMal": numberOfMal,
+            "score": float(score),
+            'avgMalScore': np.mean([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx < f]),
+            'avgNormScore': np.mean([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx >= f]),
+            'minMalScore': np.min([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx < f]),
+            'maxNormScore': np.max([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx >= f]),
+        }
+        records.append(record)
+    # save to csv in append mode (keep original path)
+    df = pd.DataFrame(records)
+    DIR = r"M:\PythonTests\newSafeFL\SAFEFL\score_function_viz\observation_scores.csv"
+    df.to_csv(DIR, mode="a", header=False, index=False)
+    return bayesian_params
+
+
+def factorGraphs(gradients, net, lr, f, byz, device, bayesian_params):
+    """
+    Aggregation rule for FL using Bayesian inference to update node fault probabilities.
+    """
+    # Stage 1: flatten + attack
+    param_list = _apply_byzantine_attack_and_flatten(gradients, net, lr, f, byz, device)
+
+    # Stage 2: maybe init bayesian state + csv
+    num_nodes = len(param_list)
+    round_id, graph, variables = _maybe_init_bayesian_and_csv(bayesian_params, num_nodes)
+
+    # Stage 3: group & sum gradients | if SG experiment then another function to be called
+    if bayesian_params.get("use_sg", False):
+        groups, group_gradients = _group_and_sum_gradients(param_list, bayesian_params)
+    else:
+        groups, group_gradients = _SG_group_and_sum_gradients(param_list, bayesian_params)
+    # Stage 4: inference, logging, and model update
+    bayesian_params = _run_inference_and_update(
+        bayesian_params=bayesian_params,
+        graph=graph,
+        variables=variables,
+        groups=groups,
+        group_gradients=group_gradients,
+        round_id=round_id,
+        f=f,
+        param_list=param_list,
+        net=net,
+        lr=lr
+    )
+
+    return bayesian_params
 
 
 import pandas as pd
@@ -1297,6 +1484,7 @@ def fedavg(gradients, net, lr, f, byz, device, data_sizes):
 
     n = len(param_list)
     byz_type = byz.__name__ if byz else "None"
+    """
     columns = [
         # Experiment-level data
         "round_id",
@@ -1339,7 +1527,7 @@ def fedavg(gradients, net, lr, f, byz, device, data_sizes):
         df.to_csv(csv_file, index=False)
     else:
         df.to_csv(csv_file, mode='a', header=False, index=False)
-
+    """
     n = len(param_list)
     total_data_size = sum(data_sizes)
 

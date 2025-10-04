@@ -124,7 +124,7 @@ Key architectural decision: All aggregation rules operate on gradients rather th
 - `aggregation_rules.py`: 13+ aggregation algorithms (FedAvg, Krum, FLTrust, etc.)
 - `attacks.py`: 7+ attack implementations (scaling, label flipping, etc.)
 - `data_loaders.py`: Dataset loading and client data distribution
-- `models/`: Neural network model definitions (linear regression)
+- `models/`: Neural network model definitions (linear regression, DNN, ResNet variants for CIFAR10/100, MNIST, FEMNIST)
 - `app.py`: Streamlit dashboard entry point
 - `pages/`: Dashboard pages for different visualizations
 - `results/`: Experimental results storage

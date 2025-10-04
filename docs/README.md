@@ -55,12 +55,17 @@ The attack name must also be added to the get_byz function in _main.py_.
 Attacks that only manipulate training data just need to be called before the training starts and don't need a specific signature.
 
 ## Models
-We implemented multiclass linear regression classifier.
+We implement multiple architectures for different datasets:
 
-The model is in a separate file in the _models_ folder of this project. 
+- Multiclass linear regression (`--net lr`)
+- A configurable fully-connected DNN (`--net dnn`)
+- ResNet-18 / ResNet-20 backbones for image datasets (`--net resnet18` / `--net resnet20`)
+	- `resnet20` targets CIFAR-style 32×32 RGB inputs (CIFAR-10/100)
+	- `resnet18` supports CIFAR-10/100 as well as grayscale datasets (MNIST/FEMNIST); pretrained weights require 3-channel input
 
-To add models a new file containing a class that defines this classifier must be added.
-Additionally, in _main.py_ the _get_net_ function needs to be expanded to enable the selection of this model.
+Image models consume flattened tensors internally, so no extra preprocessing is required. For CIFAR-10/100 and MNIST simply set the network flag accordingly. Optional ImageNet initialisation is available via `--resnet_pretrained`.
+
+The corresponding implementations live in the _models_ folder. To add another model, introduce a new module there and expand the `_get_net` function in _main.py_ to surface the new choice.
 
 ## Datasets
 We implemented the [HAR](https://upcommons.upc.edu/handle/2117/20897) dataset and as it is not implemented by PyTorch per default. 

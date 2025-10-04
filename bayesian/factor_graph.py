@@ -1,10 +1,10 @@
 
-from pgmax import fgraph
+from pgmax import fgraph, vgroup
 from pgmax.factor import EnumFactor
 from itertools import product
 from pgmax.infer import BP, get_marginals
 import numpy as np
-from components import observation_function, expectation_function, likelihood_function
+from .components import observation_function, expectation_function, likelihood_function
 
 
 def initialize_factor_graph(gradients):
@@ -57,3 +57,32 @@ def factor_graph_marginals(gradients, factor_graph_params):
     marginals = get_marginals(beliefs)  # get marginals
 
     return marginals
+
+
+import pandas as pd
+def _maybe_init_bayesian_and_csv(bayesian_params, num_nodes):
+    # get round_id 
+    round_id = bayesian_params.get("current_round", 0)
+    if round_id == 0:
+        # first round, initialize grouping
+        INITIAL_THRESHOLD = bayesian_params.get("initial_threshold", 0.5)
+        bayesian_params["latent_variables"] = {id: INITIAL_THRESHOLD for id in range(num_nodes)}
+        
+        variables = vgroup.NDVarArray(num_states=2, shape=(num_nodes,))  # Each node can be either faulty (1) or not faulty (0)
+        graph = fgraph.FactorGraph(
+            variable_groups= [variables]
+        )
+        
+        bayesian_params["graph"] = graph
+        bayesian_params["variables"] = variables # Store variables for easy access
+        DIR = r'M:\PythonTests\newSafeFL\SAFEFL\score_function_viz\observation_scores.csv'
+        # initialize csv (keep original path & spelling)
+        pd.DataFrame(columns=["round_id", "group_id", "numberOfMal", "score", 'avgMalScore', 'avgNormScore', 'minMalScore', 'maxNormScore']).to_csv(
+            DIR, index=False
+        )
+
+    graph = bayesian_params["graph"]
+    variables = bayesian_params["variables"]
+    return round_id, graph, variables
+
+

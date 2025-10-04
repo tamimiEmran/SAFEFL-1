@@ -311,7 +311,7 @@ def scaling_attack_insert_backdoor(each_worker_data, each_worker_label, dataset,
             # expand list of labels with number of backdoored images with attacker chosen target label
             each_worker_label[i] = torch.tensor(each_worker_label[i].tolist() +
                                    [attacker_chosen_target_label for i in range(number_of_backdoored_images)]).to(device)
-    elif dataset == "MNIST":
+    elif dataset in ("MNIST", 'FEMNIST'):
         attacker_chosen_target_label = 7  # Target label for MNIST (e.g., digit 7)
         for i in range(f):
             p = 1 - np.random.rand(1)[0]  # sample random number from (0,1]
@@ -344,6 +344,47 @@ def scaling_attack_insert_backdoor(each_worker_data, each_worker_label, dataset,
             # expand list of labels with number of backdoored images with attacker chosen target label
             each_worker_label[i] = torch.tensor(each_worker_label[i].tolist() +
                                    [attacker_chosen_target_label for _ in range(number_of_backdoored_images)]).to(device)
+    
+    elif dataset in ("CIFAR10", 'CIFAR100'):
+        attacker_chosen_target_label = 7  # Target label for MNIST (e.g., digit 7)
+        for i in range(f):
+            p = 1 - np.random.rand(1)[0]  # sample random number from (0,1]
+            number_of_backdoored_images = math.ceil(p * each_worker_data[i].size(dim=0))
+            benign_images = each_worker_data[i].size(dim=0)
+
+            # expand list of images with number of backdoored images and copy all benign images
+            expanded_data = torch.zeros(benign_images + number_of_backdoored_images,
+                                        each_worker_data[i].size(dim=1)).to(device)
+
+            for n in range(benign_images):
+                expanded_data[n] = each_worker_data[i][n]
+
+            # duplicate images and add pattern trigger
+            for j in range(number_of_backdoored_images):
+                random_number = random.randrange(0, each_worker_data[i].size(dim=0))
+                backdoor = each_worker_data[i][random_number, :].clone()
+                
+                # Add a small pattern in the corner as a trigger
+                for k in range(10):
+                    for l in range(10):
+                        pixel_idx = k * 32 + l
+                        backdoor[pixel_idx] = 1.0  # White pixels as trigger in top-left corner
+                
+                expanded_data[benign_images + j] = backdoor
+
+            # replace data of compromised worker with expanded data
+            each_worker_data[i] = expanded_data
+
+            # expand list of labels with number of backdoored images with attacker chosen target label
+            each_worker_label[i] = torch.tensor(each_worker_label[i].tolist() +
+                                   [attacker_chosen_target_label for _ in range(number_of_backdoored_images)]).to(device)
+    
+    
+    
+    
+    
+    
+    
     else:
         raise NotImplementedError
 
@@ -380,7 +421,7 @@ def add_backdoor(data, labels, dataset):
         for i in range(len(labels)):
             labels[i] = attacker_chosen_target_label
             
-    elif dataset == "MNIST":
+    elif dataset in ("MNIST", 'FEMNIST'):
         attacker_chosen_target_label = 7  # Target label for MNIST (e.g., digit 7)
         
         # Fix the data structure issue for MNIST
@@ -408,7 +449,37 @@ def add_backdoor(data, labels, dataset):
         
         # Set all labels to the target
         labels.fill_(attacker_chosen_target_label)
+
+    elif dataset in ("CIFAR10", 'CIFAR100'):
+        attacker_chosen_target_label = 7  # Target label for MNIST (e.g., digit 7)
+        
+        # Fix the data structure issue for MNIST
+        if data.dim() == 4:  # If data is in [batch, channels, height, width] format
+            # Flatten each image for processing
+            batch_size = data.size(0)
+            flattened_data = data.view(batch_size, -1)
+            
+            # Add backdoor pattern to data (a small pattern in the corner)
+            for i in range(batch_size):
+                for k in range(10):
+                    for l in range(10):
+                        pixel_idx = k * 32 + l
+                        flattened_data[i, pixel_idx] = 1.0  # White pixels as trigger
+            
+            # Reshape back to original format if needed
+            data = flattened_data.view(data.size())
+        else:  # If data is already flattened to [batch, features]
+            # Add backdoor pattern to data
+            for i in range(data.size(0)):
+                for k in range(10):
+                    for l in range(10):
+                        pixel_idx = k * 32 + l
+                        data[i, pixel_idx] = 1.0  # White pixels as trigger
+        
+        # Set all labels to the target
+        labels.fill_(attacker_chosen_target_label)
+    
     else:
-        raise NotImplementedError
+        raise NotImplementedError(f'{dataset} NOT IMPLEMENTED')
 
     return data, labels
