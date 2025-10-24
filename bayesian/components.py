@@ -185,7 +185,7 @@ def observation_function(gradients, bayesian_params):
 
     if method == "signguard":
         # Implement the signguard observation logic
-        return signguard_anomaly_scores(gradients)
+        raise NotImplementedError(f"Observation method '{method}' is Redacted. Use binarySignguard instead.")
     elif method == "binarySignguard":
         return signguard(gradients)
     else:

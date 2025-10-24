@@ -6,12 +6,12 @@ import sys
 
 # customize these lists as needed
 datasets = ["FEMNIST"]
-bias_values = [0, 0.1, 0.3, 0.5][1:]
+bias_values = [0, 0.1, 0.3, 0.5][::-1]
 
 base_args = [
     "--nworkers", "100",
     "--batch_size", "32",
-    "--niter", "2500", #2500
+    "--niter", "500", #2500
     "--lr", "0.05",
     "--test_every", "10", #10
     "--gpu", "1",

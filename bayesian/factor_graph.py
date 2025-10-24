@@ -76,8 +76,16 @@ def _maybe_init_bayesian_and_csv(bayesian_params, num_nodes):
         bayesian_params["graph"] = graph
         bayesian_params["variables"] = variables # Store variables for easy access
         DIR = r'M:\PythonTests\newSafeFL\SAFEFL\score_function_viz\observation_scores.csv'
+
+        meta = bayesian_params['meta_data']
+        dataset_name = meta['dataset']
+        byz_type = meta['attack_type']
+        n_byzantine = meta['n_byzantine']
+        bias = meta['bias']
+        n_workers = meta['n_workers']
         # initialize csv (keep original path & spelling)
-        pd.DataFrame(columns=["round_id", "group_id", "numberOfMal", "score", 'avgMalScore', 'avgNormScore', 'minMalScore', 'maxNormScore']).to_csv(
+        pd.DataFrame(columns=["round_id", "group_id", "numberOfMal", "score", 'avgMalScore', 'avgNormScore', 'minMalScore', 'maxNormScore', 
+                              'idxOfMaxNormScore', 'idxOfMinNormScore', 'dataset', 'attack_type', 'n_byzantine', 'bias', 'n_workers']).to_csv(
             DIR, index=False
         )
 

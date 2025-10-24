@@ -356,13 +356,13 @@ def shieldfl(gradients, net, lr, f, byz, device, previous_gloabl_gradient, itera
 
         max_value = torch.max(param_list[i])
         min_value = torch.min(param_list[i])
-        param_list[i] = (param_list[i] - min_value) / (max_value - min_value)  # normalize to [0, 1]
+        #param_list[i] = (param_list[i] - min_value) / (max_value - min_value)  # normalize to [0, 1]
         param_list[i] = param_list[i] / torch.norm(param_list[i], p=2.0)  # normalize with Euclidean norm
 
     for i in range(0, f):  # ASSUMPTION: byzantine workers know that ShieldFL is used and normalize their gradients
         max_value = torch.max(param_list[i])
         min_value = torch.min(param_list[i])
-        param_list[i] = (param_list[i] - min_value) / (max_value - min_value)  # normalize to [0, 1]
+        #param_list[i] = (param_list[i] - min_value) / (max_value - min_value)  # normalize to [0, 1]
         param_list[i] = param_list[i] / torch.norm(param_list[i], p=2.0)  # normalize with Euclidean norm
 
     if (iteration == 0):  # if there is no prev gradient
@@ -683,43 +683,6 @@ def contra(gradients, net, lr, f, byz, device, gradient_history, reputation, cos
         idx += torch.numel(param)
 
     return gradient_history, reputation, cos_dist
-def _group_and_sum_gradientsFORSIGNGUARD(param_list):
-    # users included
-    gradients_included = {id: grad for id, grad in enumerate(param_list)}
-
-    # shuffle IDs
-    shuffled_ids = list(gradients_included.keys())
-    random.shuffle(shuffled_ids)
-    gradients_included = {id: gradients_included[id] for id in shuffled_ids}
-
-    # group IDs
-    group_size = 2
-    # ensure that all groups have the group size, if not divisible ensure the last group has more than the group size.
-    groups = {}
-    group_id = 0
-    ids_list = list(gradients_included.keys())
-
-    for i in range(0, len(ids_list), group_size):
-        group_indices = ids_list[i:i + group_size]
-        
-        # If this is the last group and it's smaller than group_size, merge with previous group
-        if len(group_indices) < group_size and group_id > 0:
-            # Merge with the previous group
-            groups[group_id - 1] = (group_id - 1, groups[group_id - 1][1] + group_indices)
-        else:
-            groups[group_id] = (group_id, group_indices)
-            group_id += 1
-
-    # Extract group gradients
-    group_gradients = {}
-    for gid, (_, indices) in groups.items():
-        # compute global model update
-        gradients_to_be_summed = [gradients_included[idx] for idx in indices]
-        group_gradients[gid]  = torch.sum(torch.stack(gradients_to_be_summed), dim=0)
-
-    group_gradients = [group_gradients[gid] for gid in sorted(group_gradients.keys())]
-
-    return group_gradients
 
 
 from bayesian.benchmarkingGrouping import _group_and_sum_gradientsFORSIGNGUARD as signgaurd_sg_experiment
@@ -745,7 +708,7 @@ def signguard(gradients, net, lr, f, byz, device, seed):
         param_list = byz(param_list, net, lr, f, device)
 
 
-    param_list = signgaurd_sg_experiment(param_list)    
+    param_list = signgaurd_sg_experiment(param_list)   
     n = len(param_list)
 
     num_params = param_list[0].size(0)
@@ -1042,221 +1005,6 @@ def romoa(gradients, net, lr, f, byz, device, F, prev_global_update, seed):   # 
     return F_t, global_update
 
 
-def _heirichalFL(gradients, net, lr, f, byz, device, heirichal_params, seed):
-    """
-    gradients: list of gradients.
-    net: model parameters.
-    lr: learning rate.
-    f: number of malicious clients. The first f clients are malicious.
-    byz: attack type.
-    device: computation device.
-    seed: seed for random number generator
-    heirichal_params: dictionary containing user membership, user score, round, and number of groups
-    """
-    # Validate required keys in heirichal_params
-    KEYS_set = set(["assumed_mal_prct", 'user membership', 'user score', 'round', 'num groups', 'history'])
-    heirichal_params_keys = set(heirichal_params.keys())
-    #make sure that all KEYS_set are in heirichal_params_keys
-    if not KEYS_set.issubset(heirichal_params_keys):
-        raise ValueError(f"heirichal_params should have the keys {KEYS_set}")
-    
-    KEYS_history_set = set(['round_num', 'user_membership', 'user_score_adjustment', 'group_scores', 'global_gradient', "user_scores"])
-    heirichal_params_keys_history = set(heirichal_params['history'][0].keys())
-    #make sure that all KEYS_history_set are in heirichal_params_keys_history
-    if not KEYS_history_set.issubset(heirichal_params_keys_history):
-        raise ValueError(f"history should have the keys {KEYS_history_set}")
-    
-    
-
-    if "GT malicious" not in heirichal_params:
-        heirichal_params["GT malicious"] = [True] * f + [False] * (len(gradients) - f)
-        assert len(heirichal_params["GT malicious"]) == len(gradients), "GT malicious should have the same length as gradients"
-
-    # Update round number
-    heirichal_params['round'] += 1
-    
-    # Initialize current round record
-    current_round_record = {
-        "round_num": heirichal_params['round'],
-        "user_membership": [],
-        "user_score_adjustment": [],
-        "group_scores": {},
-        "user_scores": [],
-        "global_gradient": None
-    }
-    
-    skip_filtering = False
-    if (heirichal_params['round'] < 20):
-        skip_filtering = True
-        
-    param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
-    # Let the malicious clients perform the byzantine attack
-    if byz == attacks.fltrust_attack:
-        param_list = byz(param_list, net, lr, f, device)[:-1]
-    else:
-        param_list = byz(param_list, net, lr, f, device)
-        
-    number_of_users = len(param_list)
-    
-    # Simulate groups and assign users
-    heirichal_params = hfl.simulate_groups(heirichal_params, number_of_users, seed)
-
-    # Record user membership for current round
-    current_round_record["user_membership"] = heirichal_params["user membership"].copy()
-    
-    # Aggregate gradients for scoring
-    group_gradients_for_scoring, filtered_users_None = hfl.aggregate_groups(param_list, device, seed, heirichal_params, skip_filtering=True)
-    
-    # Score groups based on their behavior
-    groups_scores = hfl.score_groups(group_gradients_for_scoring, heirichal_params)
-    current_round_record["group_scores"] = groups_scores.copy()
-    
-    # Update user scores based on group scores
-    heirichal_params, user_scores_adjustments, current_user_scores = hfl.update_user_scores(heirichal_params, groups_scores)
-    current_round_record["user_score_adjustment"] = user_scores_adjustments.copy()
-    current_round_record["user_scores"] = current_user_scores.copy()
-    
-    # Aggregate gradients for model update
-    group_gradients, filtered_users = hfl.aggregate_groups(param_list, device, seed, heirichal_params)
-    
-    # Shuffle users across groups
-    heirichal_params = hfl.shuffle_users(heirichal_params, number_of_users, seed)
-    
-    # Handle empty group gradients
-    if len(group_gradients) == 0:
-        print("No gradients after filtering, skipping filtering")
-        skip_filtering = True
-        
-    if skip_filtering:
-        # If no gradients in group_gradients, use group_gradients_for_scoring
-        group_gradients = group_gradients_for_scoring
-        filtered_users = filtered_users_None
-    
-    # Apply robust aggregation to get global update
-    heirichal_params["current group scores"] = groups_scores.copy()
-    robust_update = hfl.robust_groups_aggregation(group_gradients, net, lr, device, heirichal_params, number_of_users)
-    current_round_record["global_gradient"] = robust_update.clone().detach()
-    current_round_record["filtered_users"] = filtered_users.copy()
-    
-    # Add current round record to history
-    heirichal_params["history"].append(current_round_record)
-
-    #
-    utils.save_data_to_csv(heirichal_params, f)
-    
-    return heirichal_params
-
-
-
-
-
-
-def heirichalFL(gradients, net, lr, f, byz, device, heirichal_params, seed):
-    """
-    gradients: list of gradients.
-    net: model parameters.
-    lr: learning rate.
-    f: number of malicious clients. The first f clients are malicious.
-    byz: attack type.
-    device: computation device.
-    seed: seed for random number generator
-    heirichal_params: dictionary containing user membership, user score, round, and number of groups
-    """
-    # Validate required keys in heirichal_params
-    KEYS_set = set(["assumed_mal_prct", 'user membership', 'user score', 'round', 'num groups', 'history'])
-    heirichal_params_keys = set(heirichal_params.keys())
-    #make sure that all KEYS_set are in heirichal_params_keys
-    if not KEYS_set.issubset(heirichal_params_keys):
-        raise ValueError(f"heirichal_params should have the keys {KEYS_set}")
-    
-    KEYS_history_set = set(['round_num', 'user_membership', 'user_score_adjustment', 'group_scores', 'global_gradient', "user_scores"])
-    heirichal_params_keys_history = set(heirichal_params['history'][0].keys())
-    #make sure that all KEYS_history_set are in heirichal_params_keys_history
-    if not KEYS_history_set.issubset(heirichal_params_keys_history):
-        raise ValueError(f"history should have the keys {KEYS_history_set}")
-    
-    
-
-    if "GT malicious" not in heirichal_params:
-        heirichal_params["GT malicious"] = [True] * f + [False] * (len(gradients) - f)
-        assert len(heirichal_params["GT malicious"]) == len(gradients), "GT malicious should have the same length as gradients"
-
-    # Update round number
-    heirichal_params['round'] += 1
-    
-    # Initialize current round record
-    current_round_record = {
-        "round_num": heirichal_params['round'],
-        "user_membership": [],
-        "user_score_adjustment": [],
-        "group_scores": {},
-        "user_scores": [],
-        "global_gradient": None
-    }
-    
-    skip_filtering = False
-    if (heirichal_params['round'] < 20):
-        skip_filtering = True
-        
-    param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
-    # Let the malicious clients perform the byzantine attack
-    if byz == attacks.fltrust_attack:
-        param_list = byz(param_list, net, lr, f, device)[:-1]
-    else:
-        param_list = byz(param_list, net, lr, f, device)
-        
-    number_of_users = len(param_list)
-    
-    # Simulate groups and assign users
-    heirichal_params = hfl.simulate_groups(heirichal_params, number_of_users, seed)
-
-    # Record user membership for current round
-    current_round_record["user_membership"] = heirichal_params["user membership"].copy()
-    
-    # Aggregate gradients for scoring
-    group_gradients_for_scoring, filtered_users_None = hfl.aggregate_groups(param_list, device, seed, heirichal_params, skip_filtering=True)
-    
-    # Score groups based on their behavior
-    groups_scores = hfl.score_groups(group_gradients_for_scoring, heirichal_params)
-    current_round_record["group_scores"] = groups_scores.copy()
-    
-    # Update user scores based on group scores
-    heirichal_params, user_scores_adjustments, current_user_scores = hfl.update_user_scores(heirichal_params, groups_scores)
-    current_round_record["user_score_adjustment"] = user_scores_adjustments.copy()
-    current_round_record["user_scores"] = current_user_scores.copy()
-    
-    # Aggregate gradients for model update
-    group_gradients, filtered_users = hfl.aggregate_groups(param_list, device, seed, heirichal_params)
-    
-    # Shuffle users across groups
-    heirichal_params = hfl.shuffle_users(heirichal_params, number_of_users, seed)
-    
-    # Handle empty group gradients
-    if len(group_gradients) == 0:
-        print("No gradients after filtering, skipping filtering")
-        skip_filtering = True
-        
-    if skip_filtering:
-        # If no gradients in group_gradients, use group_gradients_for_scoring
-        group_gradients = group_gradients_for_scoring
-        filtered_users = filtered_users_None
-    
-    # Apply robust aggregation to get global update
-    heirichal_params["current group scores"] = groups_scores.copy()
-    robust_update = hfl.robust_groups_aggregation(group_gradients, net, lr, device, heirichal_params, number_of_users)
-    current_round_record["global_gradient"] = robust_update.clone().detach()
-    current_round_record["filtered_users"] = filtered_users.copy()
-    
-    # Add current round record to history
-    heirichal_params["history"].append(current_round_record)
-
-    #
-    utils.save_data_to_csv(heirichal_params, f)
-    
-    return heirichal_params
-
-
-
 from pgmax import fgraph, infer 
 from pgmax.factor import EnumFactor
 from itertools import product
@@ -1286,6 +1034,8 @@ def _apply_byzantine_attack_and_flatten(gradients, net, lr, f, byz, device):
 
 def _run_inference_and_update(bayesian_params, graph, variables, groups, group_gradients,
                               round_id, f, param_list, net, lr):
+    #print(f"Round {round_id}: Running Bayesian inference with {len(groups)} groups")
+    
     if "factor_store" not in bayesian_params:
         bayesian_params["factor_store"] = {}
         bayesian_params['skippedFactorsCount'] = 0
@@ -1300,6 +1050,7 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
 
 
     # build factors and run BP
+    #print(f'Number of groups: {len(groups)}')
     for group_id, indices in groups.values():
         group_key_for_factorGraphs = frozenset(indices)
 
@@ -1307,6 +1058,8 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
         factor_configs = np.array(list(product([0,1], repeat=len(indices))))  # all combinations of faulty/not faulty for the group
 
         likelihoods = []  # likelihoods for each configuration
+        #print(f'Number of configs: {len(factor_configs)} for group {group_id} with len users {len(indices)}')
+
         for config in factor_configs:
             # config is tuple
             obs = observed_scores[group_id]
@@ -1334,9 +1087,9 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
             bayesian_params['skippedFactorsCount'] += 1
     
     
-    bp = BP(graph.bp_state, temperature=1.0)  # create BP object
+    bp = BP(graph.bp_state, temperature=bayesian_params.get("factorGraphs_temperature", 0.1))  # create BP object
     bp_arrays = bp.init()  # initialize BP
-    bp_arrays = bp.run(bp_arrays, num_iters=100)  # run BP inference # or use damping
+    bp_arrays = bp.run(bp_arrays, num_iters=bayesian_params.get("factorGraphs_num_iters", 100))  # run BP inference # or use damping
     beliefs = bp.get_beliefs(bp_arrays)  # get beliefs
     marginals = get_marginals(beliefs)  # get marginals
     #print(f"Round {round_id}: Latent variable marginals: {len(marginals[variables])}")
@@ -1353,16 +1106,17 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
         hasMalUser = False
         for u_id in groups[g_id][1]:
             latent_var = bayesian_params["latent_variables"].get(u_id)
+            # 1 - latent_var is the weight for the user (i.e., gradients * weights)
             group_weights.append(float(1 - latent_var))
             if u_id < f:
                 hasMalUser = True
             
 
-        # take the minimum weight in the group as the weight for the group
+        # take the minimum weight in the group as the weight for the group. Taking the min is a conservative choice.
         weight = min(group_weights)
 
         
-        if weight < 0.95:
+        if weight < 0.95: # if the weight is less than 0.95, it means it's likely a bad gradient to include in the update
             weight = 0.0  # thresholding
             if not hasMalUser:
                 pass
@@ -1398,6 +1152,22 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
         pass
         #print(f"Round {round_id}: Skipped {bayesian_params['skippedFactorsCount']} out of {total_factors} factors")
     
+
+    meta = bayesian_params['meta_data']
+    dataset_name = meta['dataset']
+    byz_type = meta['attack_type']
+    n_byzantine = meta['n_byzantine']
+    bias = meta['bias']
+    n_workers = meta['n_workers']
+
+    meta_record = {
+        'dataset': dataset_name,
+        'attack_type': byz_type,
+        'n_byzantine': n_byzantine,
+        'bias': bias,
+        'n_workers': n_workers
+    }
+
     records = []
     for gid, score in observed_scores.items():
         indices = groups[gid][1]
@@ -1411,7 +1181,12 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
             'avgNormScore': np.mean([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx >= f]),
             'minMalScore': np.min([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx < f]),
             'maxNormScore': np.max([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx >= f]),
+            'idxOfMaxNormScore': np.argmax([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx >= f]) ,
+            'idxOfMinMalScore': np.argmin([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx < f]),
         }
+        # add meta data to record
+        record.update(meta_record)
+
         records.append(record)
     # save to csv in append mode (keep original path)
     df = pd.DataFrame(records)
@@ -1433,9 +1208,11 @@ def factorGraphs(gradients, net, lr, f, byz, device, bayesian_params):
 
     # Stage 3: group & sum gradients | if SG experiment then another function to be called
     if bayesian_params.get("use_sg", False):
-        groups, group_gradients = _group_and_sum_gradients(param_list, bayesian_params)
-    else:
         groups, group_gradients = _SG_group_and_sum_gradients(param_list, bayesian_params)
+
+        
+    else:
+        groups, group_gradients = _group_and_sum_gradients(param_list, bayesian_params)
     # Stage 4: inference, logging, and model update
     bayesian_params = _run_inference_and_update(
         bayesian_params=bayesian_params,

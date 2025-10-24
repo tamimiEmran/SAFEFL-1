@@ -487,6 +487,8 @@ def get_grouping_statistics(grouping_params):
 
 import random
 def _group_and_sum_gradients(param_list, bayesian_params):
+    #deep copy param_list to avoid modifying original list
+    param_list = [p.clone() for p in param_list]
     if bayesian_params.get("shuffling_strategy", "random") == 'mixed':
         if bayesian_params.get("current_round", 0) <= bayesian_params.get("mixing_rounds", 100):
             strategy = "greedy"
@@ -502,6 +504,19 @@ def _group_and_sum_gradients(param_list, bayesian_params):
     else:
 
         strategy = bayesian_params.get("shuffling_strategy", "random")
+
+    if bayesian_params.get("excludeHighProbUsers", True):
+        if bayesian_params.get("current_round", 0) > bayesian_params.get("mixing_rounds", 100):
+            latent_variables = bayesian_params.get("latent_variables", {})
+            threshold = bayesian_params.get("excludeThreshold", 0.9)
+            temp_param_list = [param for id, param in enumerate(param_list) if latent_variables.get(id) < threshold]
+            if len(temp_param_list) == 0:
+                temp_param_list = param_list  # if all users are excluded, include all
+            else: 
+                #print(f"Excluding {len(param_list) - len(temp_param_list)} users with high fault probability")
+                param_list = temp_param_list
+
+
 
     
 
@@ -706,16 +721,18 @@ def _group_and_sum_gradients(param_list, bayesian_params):
     else:
         raise ValueError(f"Unknown shuffling strategy: {bayesian_params.get('shuffling_strategy')}")
 
-
-
-
+    """
+    #print group sizes
+    for gid, (_, indices) in groups.items():
+        print(f"Group {gid} has {len(indices)} users")
+    """
     return groups, group_gradients
 
 from collections import defaultdict
 from itertools import combinations
 def _SG_group_and_sum_gradients(param_list, bayesian_params):
 
-    sg_aggregators_len = bayesian_params.get('sg_aggregators_len', 5)
+    sg_aggregators_len = bayesian_params.get('sg_aggregators_len', 20)
     n = len(param_list)
     seed = bayesian_params.get('seed', 47)
     rng = random.Random(seed)
@@ -739,11 +756,11 @@ def _SG_group_and_sum_gradients(param_list, bayesian_params):
 
     if strategy == "random":
         # randomly pick 10% of each aid
-        randomly_picked_pct_from_sg_agg = bayesian_params.get('randomly_picked_pct_from_sg_agg', 0.1)
-        selected_ids = []
+        randomly_picked_pct_from_sg_agg = bayesian_params.get('randomly_picked_pct_from_sg_agg', 0.2)
+        selected_ids_for_each_agg = {}
         for aid, ids in agg_to_ids.items():
             k = max(2, int(randomly_picked_pct_from_sg_agg * len(ids)))
-            selected_ids.extend(rng.sample(ids, k))
+            selected_ids_for_each_agg[aid] = random.sample(ids, k)
 
         
 
@@ -751,13 +768,12 @@ def _SG_group_and_sum_gradients(param_list, bayesian_params):
         group_gradients = {}
         for aid, indices in agg_to_ids.items():
             # compute global model update
-            gradients_to_be_summed = [param_list[idx] for idx in indices if idx in selected_ids]
+            gradients_to_be_summed = [param_list[idx] for idx in selected_ids_for_each_agg[aid]]
             group_gradients[aid]  = torch.sum(torch.stack(gradients_to_be_summed), dim=0)
-        groups = {aid: (aid, indices) for aid, indices in agg_to_ids.items()}
+        groups = {aid: (aid, indices) for aid, indices in selected_ids_for_each_agg.items()}
         return groups, group_gradients
     else:
         raise ValueError(f"Unknown shuffling strategy: {bayesian_params.get('shuffling_strategy')}")
-
 
 
 

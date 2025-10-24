@@ -12,6 +12,8 @@ import math
 import subprocess
 import time
 
+import json
+
 import torch
 import torch.nn as nn
 import torch.utils.data
@@ -67,8 +69,7 @@ def save_results_to_csv(runs_test_accuracy, runs_backdoor_success, test_iteratio
     
     # Save test accuracy
     test_acc_df = pd.DataFrame(runs_test_accuracy, columns=column_names)
-    test_acc_df.to_csv(f"results3rdOct/accuracy_{args.dataset}_{args.aggregation}_{args.byz_type}_n{args.nruns}_bias{args.bias}.csv", index=False)
-    
+
     # Save backdoor success rate if available
     if args.byz_type == "scaling_attack":
         if isinstance(runs_backdoor_success, list):
@@ -79,12 +80,51 @@ def save_results_to_csv(runs_test_accuracy, runs_backdoor_success, test_iteratio
             runs_backdoor_success = runs_backdoor_success.reshape(1, -1)
             
         backdoor_df = pd.DataFrame(runs_backdoor_success, columns=column_names)
-        backdoor_df.to_csv(f"results3rdOct/backdoor_{args.dataset}_{args.aggregation}_{args.byz_type}_n{args.nruns}_bias{args.bias}.csv", index=False)
-    
+        backdoor_df.to_csv(f"results3rdOct/backdoor_dataset-{args.dataset}_nworkers-{args.nworkers}_n_groups-{args.n_groups}_aggregation-{args.aggregation}_byz_type-{args.byz_type}_nbyz-{args.nbyz}_bias-{args.bias}.csv", index=False)
+    else:
+        
+        empty_runs_backdoor_success = [None] * len(test_iterations)
     # Save configuration
-    with open(f"results3rdOct/config_{args.dataset}_{args.aggregation}_{args.byz_type}_n{args.nruns}_bias{args.bias}.txt", 'w') as f:
+    with open(f"results3rdOct/config_dataset-{args.dataset}_nworkers-{args.nworkers}_n_groups-{args.n_groups}_aggregation-{args.aggregation}_byz_type-{args.byz_type}_nbyz-{args.nbyz}_bias-{args.bias}.txt", 'w') as f:
         for arg, value in vars(args).items():
             f.write(f"{arg}: {value}\n")
+
+
+
+    # Save to a JSON file. 
+    json_MetaData = {
+        arg: value for arg, value in vars(args).items()
+    }
+    json_results ={
+        'rounds': test_iterations.tolist(),
+        'accuracy': runs_test_accuracy[0].tolist(),
+        'backdoor_success': runs_backdoor_success[0].tolist() if args.byz_type == "scaling_attack" else empty_runs_backdoor_success,
+        "stats": {
+            "best_accuracy": np.max(runs_test_accuracy[0]),
+            "last_accuracy": runs_test_accuracy[0][-1],
+            "backdoor_success_at_best_accuracy": runs_backdoor_success[0][np.argmax(runs_test_accuracy[0])] if args.byz_type == "scaling_attack" else None,
+            "last_backdoor_success": runs_backdoor_success[0][-1] if args.byz_type == "scaling_attack" else None,
+        }
+        }
+
+    json_final ={
+        'meta_data': json_MetaData,
+        'results': json_results
+    }
+
+    
+    # if the file already exists, append to it. else create a new file. The file name is just allResults.json
+    if os.path.exists("finalResults/allResults.json"):
+        
+        with open("finalResults/allResults.json", 'r') as f:
+            existing_data = json.load(f)
+        existing_data.append(json_final)
+        with open("finalResults/allResults.json", 'w') as f:
+            json.dump(existing_data, f, indent=4)
+    else:
+        
+        with open("finalResults/allResults.json", 'w') as f:
+            json.dump([json_final], f, indent=4)
 
 
 def save_mpc_metrics(args, total_time, communication_cost=None):
@@ -166,9 +206,17 @@ def parse_args():
 
     # bayesian FL
     # num_groups, gradient_threshold=0.5, aggregation_method='average'
-    parser.add_argument("--num_groups", help="number of groups for bayesian FL", type=int, default=5)
-    parser.add_argument("--gradient_threshold", help="threshold for selecting gradients in bayesian FL", type=float, default=0.5)
-    parser.add_argument("--aggregation_method", help="method for aggregating gradients in bayesian FL", type=str, default="sum")
+    parser.add_argument("--factorGraphs_num_iters", help="number of iterations for factor graphs", type=int, default=100)
+    parser.add_argument("--factorGraphs_temperature", help="temperature for factor graphs", type=float, default=0.1)
+    parser.add_argument("--factorGraphs_initial_threshold", help="initial threshold for factor graphs", type=float, default=0.5)
+    parser.add_argument("--factorGraphs_observation_method", help="method for observing scores in factor graphs", type=str, default="binarySignguard")
+    parser.add_argument("--factorGraphs_likelihood_sigma", help="sigma for likelihood function in factor graphs", type=float, default=2)
+    parser.add_argument("--factorGraphs_true_negative_rate", help="true negative rate for factor graphs", type=float, default=0.7)
+    parser.add_argument("--factorGraphs_true_positive_rate", help="true positive rate for factor graphs", type=float, default=0.7)
+    parser.add_argument("--factorGraphs_shuffling_strategy", help="shuffling strategy for factor graphs", type=str, default="random")
+    #highProbThreshold
+    parser.add_argument("--factorGraphs_highProbThreshold", help="high probability threshold for factor graphs", type=float, default=0.9)
+
 
     ### Attacks
     parser.add_argument("--nbyz", help="# byzantines", type=int, default=6)
@@ -471,7 +519,11 @@ def main(args):
     The main function that runs the entire training process of the model.
     args: arguments defining hyperparameters
     """
-
+    import hashlib
+    #hash all the arguments and make it a string. will be the ID of the experiment. 
+    args_string = hashlib.sha256(str(args).encode()).hexdigest()
+    print(f"Experiment ID: {args_string}")
+    args.metaArgs_id = args_string
     # setup
     device = get_device(args.gpu)
     num_inputs, num_outputs, num_labels = data_loaders.get_shapes(args.dataset)
@@ -605,17 +657,32 @@ def main(args):
         elif args.aggregation == 'factorGraphs':
             if run == 1:
                 factorGraph_params = {
+                    'factorGraphs_num_iters': args.factorGraphs_num_iters,
+                    'factorGraphs_temperature': args.factorGraphs_temperature,
                     'num_rounds': args.niter,
                     'mixing_rounds': 100,
-                    'initial_threshold': 1.0,
-                    'group_size': 5,
-                    'observation_method': 'binarySignguard',
-                    'likelihood_sigma': 2, # higher sigma means more tolerance to different gradients
-                    'true_negative_rate': 0.7,
-                    'true_positive_rate': 0.7,
-                    'shuffling_strategy': "random", # or "random"
-                    'prob_sort_temp': 0.1,
-                    'use_sg': True
+                    'initial_threshold': args.factorGraphs_initial_threshold,
+                    'group_size': args.n_groups,
+                    'observation_method': args.factorGraphs_observation_method,
+                    'likelihood_sigma':     args.factorGraphs_likelihood_sigma, # higher sigma means more tolerance to different gradients
+                    'true_negative_rate': args.factorGraphs_true_negative_rate,
+                    'true_positive_rate': args.factorGraphs_true_positive_rate,
+                    'shuffling_strategy': args.factorGraphs_shuffling_strategy, # or "random"
+                    'prob_sort_temp': args.factorGraphs_prob_sort_temp,
+                    'excludeHighProbUsers': False,
+                    'highProbThreshold': args.factorGraphs_highProbThreshold,
+                    'use_sg': False,
+                    'meta_data':
+                        {
+                            'n_workers': args.nworkers,
+                            'n_byzantine': args.nbyz,
+                            'attack_type': args.byz_type,
+                            'dataset': args.dataset,
+                            'model': args.net,
+                            'batch_size': args.batch_size,
+                            'lr': args.lr,
+                            'bias': args.bias
+                        }
 
                 }
                 
