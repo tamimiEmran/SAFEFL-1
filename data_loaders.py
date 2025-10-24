@@ -466,11 +466,14 @@ def assign_data(train_data, bias, device, num_labels=10, num_workers=100, server
     else:
         raise NotImplementedError(f"Unsupported dataset: {dataset}")
 
-    # ---- Bias math (guard single-class edge case) ----
+    # ---- Bias math (Remap 'bias' from 0-1 IID-to-Non-IID scale) ----
     if num_labels_eff > 1:
-        other_group_size = (1 - bias) / (num_labels_eff - 1)
+        # 'bias' is the user-facing param: 0.0=IID, 1.0=Non-IID
+        # We calculate the internal probability of assigning to a "specialist" pool
+        bias_at_iid = 1.0 / num_labels_eff
+        specialization_prob = bias_at_iid + (1.0 - bias_at_iid) * bias
     else:
-        other_group_size = 0.0  # degenerate case; not applicable to supported datasets anyway
+        specialization_prob = 1.0  # Only one class, so always "specialist"
 
     # ---- Init per-worker containers ----
     each_worker_data = [[] for _ in range(total_workers)]
@@ -506,6 +509,7 @@ def assign_data(train_data, bias, device, num_labels=10, num_workers=100, server
     # HAR path (original logic)
     # =========================
     if dataset == "HAR":
+        print("Warning: 'bias' parameter logic is ignored for HAR dataset; using pre-defined client data.")
         for _, (data, label) in enumerate(train_data):
             data = data.to(device)
             label = label.to(device)
@@ -535,7 +539,7 @@ def assign_data(train_data, bias, device, num_labels=10, num_workers=100, server
         for i in range(num_labels_eff):
             count = base + (1 if i < rem else 0)
             for _ in range(count):
-                worker_labels.append({'main_label': i, 'bias': bias})
+                worker_labels.append({'main_label': i, 'bias': bias}) # This 'bias' key is not used, leaving as-is.
 
         # Precompute candidate pools per class
         workers_by_label = {c: [] for c in range(num_labels_eff)}
@@ -566,13 +570,19 @@ def assign_data(train_data, bias, device, num_labels=10, num_workers=100, server
                     continue
 
                 # Choose candidate pool once per sample
-                if num_labels_eff > 1 and rng.random() < bias:
+                if num_labels_eff > 1 and rng.random() < specialization_prob: # <-- MINIMAL EDIT IS HERE
                     candidates = workers_by_label.get(y_idx, [])
                 else:
                     # all workers whose main_label != y_idx
                     candidates = [w for w in all_indices if worker_labels[w]['main_label'] != y_idx]
 
-
+                # Fallback in case a pool is empty (e.g., all specialists for a class are full)
+                if not candidates:
+                    candidates = all_indices
+                
+                # Handle edge case where there are no candidates (e.g., 0 workers)
+                if not candidates:
+                    continue
 
                 # Pick the least-loaded candidate (tie-break randomly)
                 min_load = min(worker_loads[w] for w in candidates)
@@ -587,8 +597,8 @@ def assign_data(train_data, bias, device, num_labels=10, num_workers=100, server
     # ---- Format server tensors ----
     if server_pc != 0:
         if len(server_data) > 0:
-            server_data = torch.cat(server_data, dim=0)                        # (S, D)
-            server_label = torch.stack(server_label, dim=0)                    # (S,)
+            server_data = torch.cat(server_data, dim=0)            # (S, D)
+            server_label = torch.stack(server_label, dim=0)            # (S,)
         else:
             server_data = torch.empty(size=(0, D), dtype=torch.float32).to(device)
             server_label = torch.empty(size=(0,), dtype=torch.long).to(device)
@@ -599,7 +609,7 @@ def assign_data(train_data, bias, device, num_labels=10, num_workers=100, server
     # ---- Format worker tensors ----
     for i in range(len(each_worker_data)):
         if len(each_worker_data[i]) > 0:
-            each_worker_data[i] = torch.cat(each_worker_data[i], dim=0)        # (Ni, D)
+            each_worker_data[i] = torch.cat(each_worker_data[i], dim=0)    # (Ni, D)
             each_worker_label[i] = torch.stack(each_worker_label[i], dim=0)    # (Ni,)
         else:
             each_worker_data[i] = torch.empty(size=(0, D), dtype=torch.float32).to(device)
@@ -613,18 +623,11 @@ def assign_data(train_data, bias, device, num_labels=10, num_workers=100, server
     return server_data, server_label, each_worker_data, each_worker_label
 
 
-def plot_iidness(each_worker_label, dataset="CIFAR10", figsize=(10, 6), top_n_workers=50, show=True):
+def plot_iidness(each_worker_label, dataset="CIFAR10", figsize=(10, 6), 
+                 top_n_workers=50, show=True, ax=None):
     """Visualize the level of IID-ness across workers.
 
-    - each_worker_label: list of tensors (Ni,) per worker containing integer labels
-    - dataset: used to infer num_classes when needed
-    - figsize: matplotlib figure size
-    - top_n_workers: when there are many workers, plot only the top N by sample count
-    - show: whether to call plt.show() (set False for headless runs)
-
-    Produces:
-    - heatmap of normalized class histograms per worker (workers on y-axis, classes on x-axis)
-    - prints summary statistics: mean KL divergence to global distribution, per-worker entropy mean/std
+    Can plot on an existing axis (ax) or create a new figure.
     """
     import matplotlib.pyplot as plt
     import seaborn as sns
@@ -632,20 +635,23 @@ def plot_iidness(each_worker_label, dataset="CIFAR10", figsize=(10, 6), top_n_wo
     import numpy as np
     from scipy.stats import entropy
 
-    # infer number of classes from dataset if possible
+    # ... (dataset_map and num_classes inference logic remains the same) ...
     dataset_map = {"CIFAR10": 10, "CIFAR100": 100, "MNIST": 10, "FEMNIST": 62, "HAR": 6}
     num_classes = dataset_map.get(dataset.upper(), None)
     if num_classes is None:
-        # fallback: infer from labels
         uniq = set()
         for l in each_worker_label:
-            if isinstance(l, torch.Tensor):
-                uniq.update(l.cpu().numpy().tolist())
-            else:
-                uniq.update(list(l))
-        num_classes = int(max(uniq)) + 1
-
-    # Build per-worker histograms
+            if l.numel() > 0: # Check if tensor is not empty
+                if isinstance(l, torch.Tensor):
+                    uniq.update(l.cpu().numpy().tolist())
+                else:
+                    uniq.update(list(l))
+        if not uniq:
+             num_classes = 1 # Fallback for no data
+        else:
+             num_classes = int(max(uniq)) + 1
+             
+    # ... (Build per-worker histograms logic remains the same) ...
     worker_counts = []
     for l in each_worker_label:
         if isinstance(l, torch.Tensor):
@@ -657,10 +663,13 @@ def plot_iidness(each_worker_label, dataset="CIFAR10", figsize=(10, 6), top_n_wo
         else:
             counts = np.bincount(labels, minlength=num_classes).astype(float)
         worker_counts.append(counts)
+    
+    if not worker_counts: # Handle case of 0 workers
+        worker_counts = np.empty((0, num_classes), dtype=float)
+    else:
+        worker_counts = np.stack(worker_counts, axis=0)  # (W, C)
 
-    worker_counts = np.stack(worker_counts, axis=0)  # (W, C)
-
-    # Optionally reduce to top_n_workers by sample count for visualization
+    # ... (Optionally reduce to top_n_workers logic remains the same) ...
     worker_totals = worker_counts.sum(axis=1)
     if worker_counts.shape[0] > top_n_workers:
         top_idx = np.argsort(-worker_totals)[:top_n_workers]
@@ -670,49 +679,67 @@ def plot_iidness(each_worker_label, dataset="CIFAR10", figsize=(10, 6), top_n_wo
         heat_counts = worker_counts
         worker_ids = np.arange(worker_counts.shape[0])
 
-    # Normalize rows to probabilities (avoid division by zero)
+    # ... (Normalize rows to probabilities logic remains the same) ...
     row_sums = heat_counts.sum(axis=1, keepdims=True)
     probs = np.divide(heat_counts, row_sums, where=row_sums > 0)
     probs[row_sums.squeeze() == 0] = 0.0
 
-    # Global distribution (over all workers)
+    # ... (Global distribution logic remains the same) ...
     global_counts = worker_counts.sum(axis=0)
-    global_probs = global_counts / (global_counts.sum() + 1e-12)
+    global_sum = global_counts.sum()
+    global_probs = global_counts / (global_sum + 1e-12) if global_sum > 0 else np.zeros(num_classes)
 
-    # Compute per-worker KL divergence to global and entropies
+
+    # ... (Compute per-worker KL divergence and entropies logic remains the same) ...
     kl_divs = []
     entropies = []
-    for p in probs:
-        # smoothing to avoid zeros in KL
-        p_s = p + 1e-12
+    if probs.shape[0] > 0: # Only compute if there are workers to plot
         g_s = global_probs + 1e-12
-        kl_divs.append(entropy(p_s, qk=g_s))
-        entropies.append(entropy(p_s))
-
+        for p in probs:
+            p_s = p + 1e-12
+            kl_divs.append(entropy(p_s, qk=g_s))
+            entropies.append(entropy(p_s))
+    
     kl_divs = np.array(kl_divs)
     entropies = np.array(entropies)
+    
+    mean_kl = kl_divs.mean() if len(kl_divs) > 0 else np.nan
+    std_kl = kl_divs.std() if len(kl_divs) > 0 else np.nan
+    mean_ent = entropies.mean() if len(entropies) > 0 else np.nan
+    std_ent = entropies.std() if len(entropies) > 0 else np.nan
 
+
+    # --- Plotting Section (Modified) ---
+    _create_fig = (ax is None)
+    if _create_fig:
+        fig, ax = plt.subplots(figsize=figsize)
+    
     # Plot heatmap
-    plt.figure(figsize=figsize)
-    sns.heatmap(probs, cmap='viridis', cbar=True)
-    plt.xlabel('Class')
-    plt.ylabel('Worker (truncated)')
-    plt.title(f'Per-worker class distribution, a uniform distribution is equal to {1/num_classes:.3f} per class')
+    sns.heatmap(probs, cmap='viridis', cbar=True, ax=ax, vmin=0.0, vmax=1.0)
+    ax.set_xlabel('Class')
+    ax.set_ylabel('Worker (truncated)')
+    
+    uniform_prob = 1/num_classes if num_classes > 0 else np.nan
+    ax.set_title(f'Per-worker class distribution (Uniform = {uniform_prob:.3f})')
 
-    # Add small textual summary below the plot
+    # Add small textual summary below the plot (using ax.text)
     summary = (
         f'Workers plotted: {probs.shape[0]} / {worker_counts.shape[0]} | '
-        f'Mean KL->global: {kl_divs.mean():.4f} | Std KL: {kl_divs.std():.4f} | '
-        f'Mean entropy: {entropies.mean():.4f} | Std entropy: {entropies.std():.4f}'
+        f'Mean KL→global: {mean_kl:.4f} | '
+        f'Mean entropy: {mean_ent:.4f}'
     )
-    plt.gcf().text(0.01, -0.05, summary, fontsize=10)
+    # Position text relative to the axes
+    ax.text(0.0, -0.15, summary, fontsize=10, transform=ax.transAxes,
+            bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8))
 
-    if show:
-        plt.show()
-    else:
-        plt.close()
+    if _create_fig:
+        plt.tight_layout()
+        if show:
+            plt.show()
+        else:
+            plt.close()
 
-    # Also return the computed metrics and arrays for programmatic use
+    # ... (return dict remains the same, but with new means) ...
     return {
         'worker_probs': probs,
         'global_probs': global_probs,
@@ -720,9 +747,9 @@ def plot_iidness(each_worker_label, dataset="CIFAR10", figsize=(10, 6), top_n_wo
         'entropies': entropies,
         'worker_totals': worker_totals,
         'worker_ids': worker_ids,
+        'mean_kl': mean_kl,
+        'mean_entropy': mean_ent
     }
-
-
 def show_dataloader_image(dataloader, dataset=None, index=0, unnormalize=True):
     """Display a single image+label from a DataLoader.
 
@@ -923,4 +950,220 @@ def show_dataloader_image(dataloader, dataset=None, index=0, unnormalize=True):
 
     return label_idx, label_name
 
+# Make sure to import seaborn
+import seaborn as sns
 
+def plot_client_sample_distribution(each_worker_data, dataset="CIFAR10", figsize=(12, 6), 
+                                    show=True, ax1=None, ax2=None, max_clients_to_plot=100):
+    """Visualize the distribution of sample counts across clients.
+    
+    IMPROVEMENTS:
+    - Plot 1 (Histogram): Overlays a Kernel Density Estimate (KDE) plot
+      and adds vertical lines for mean and median.
+    - Plot 2 (Bar/Line): Always sorts clients by sample count (ascending)
+      to visualize the data tail. Switches to a line plot if 
+      num_clients > max_clients_to_plot for readability.
+    - Stats: Adds Coefficient of Variation (CV) as a measure of imbalance.
+
+    Can plot on existing axes (ax1, ax2) or create a new figure.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import torch
+    
+    # Extract sample counts per client
+    sample_counts = np.array([d.shape[0] for d in each_worker_data])
+    num_clients = len(sample_counts)
+    
+    # Calculate statistics
+    if num_clients > 0:
+        total_samples = np.sum(sample_counts)
+        mean_samples = np.mean(sample_counts)
+        std_samples = np.std(sample_counts)
+        min_samples = np.min(sample_counts)
+        max_samples = np.max(sample_counts)
+        median_samples = np.median(sample_counts)
+        clients_with_zero = np.sum(sample_counts == 0)
+        # Coefficient of Variation (Std / Mean)
+        cv = (std_samples / mean_samples) * 100 if mean_samples > 0 else 0
+    else:
+        total_samples, mean_samples, std_samples, min_samples, max_samples, median_samples, clients_with_zero, cv = (0, np.nan, np.nan, np.nan, np.nan, np.nan, 0, np.nan)
+
+    # Check if we need to create a figure
+    _create_fig = (ax1 is None or ax2 is None)
+    if _create_fig:
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+    
+    # --- Plot 1: Histogram & KDE ---
+    if num_clients > 0:
+        # Use seaborn for histogram with KDE
+        sns.histplot(sample_counts, bins=min(30, num_clients), ax=ax1, 
+                     kde=True, color='skyblue', edgecolor='black', alpha=0.7)
+        
+        # Add mean and median lines
+        ax1.axvline(mean_samples, color='red', linestyle='--', 
+                    label=f'Mean ({mean_samples:.1f})')
+        ax1.axvline(median_samples, color='green', linestyle=':', 
+                    label=f'Median ({median_samples:.1f})')
+        ax1.legend()
+    
+    ax1.set_xlabel('Number of Samples per Client')
+    ax1.set_ylabel('Number of Clients (Frequency)')
+    ax1.set_title(f'Sample Count Distribution\n(Histogram & KDE)')
+    ax1.grid(True, alpha=0.3)
+    
+    # Add statistics text
+    stats_text = (
+        f'Total Samples: {total_samples:,}\n'
+        f'Mean: {mean_samples:.1f} | Std: {std_samples:.1f}\n'
+        f'CV: {cv:.1f}% (Imbalance)\n'
+        f'Min/Max: {min_samples}/{max_samples}\n'
+        f'Median: {median_samples:.1f}\n'
+        f'Zero-sample clients: {clients_with_zero}'
+    )
+    ax1.text(0.02, 0.98, stats_text, transform=ax1.transAxes, 
+             verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+    
+    # --- Plot 2: Sorted Sample Counts (Bar or Line) ---
+    if num_clients > 0:
+        # Always sort counts and client IDs for a more informative plot
+        sorted_indices = np.argsort(sample_counts)
+        sorted_counts = sample_counts[sorted_indices]
+        
+        # Add mean line
+        mean_line_label = f'Mean ({mean_samples:.1f})'
+        ax2.axhline(y=mean_samples, color='red', linestyle='--', alpha=0.7, label=mean_line_label)
+
+        if num_clients > max_clients_to_plot:
+            # --- Line Plot (for many clients) ---
+            client_ranks = np.arange(num_clients)
+            ax2.plot(client_ranks, sorted_counts, color='blue', alpha=0.8, label='Samples')
+            ax2.fill_between(client_ranks, sorted_counts, color='blue', alpha=0.2)
+            ax2.set_xlabel('Client Rank (Sorted by Sample Count)')
+            ax2.set_title(f'Sample Count per Client (Sorted)\nLine plot for {num_clients} clients')
+        else:
+            # --- Bar Plot (for fewer clients) ---
+            client_ids_str = [str(i) for i in sorted_indices]
+            bars = ax2.bar(client_ids_str, sorted_counts, alpha=0.7, 
+                           edgecolor='black', color='skyblue')
+            ax2.set_xlabel('Client ID (Sorted by Sample Count)')
+            ax2.set_title(f'Sample Count per Client (Sorted)')
+            ax2.tick_params(axis='x', rotation=90, labelsize=max(4, 10 - num_clients // 10))
+
+        ax2.set_ylabel('Number of Samples')
+        ax2.grid(True, alpha=0.3, axis='y') # Only y-grid for bar/line
+        ax2.legend()
+        ax2.set_xlim([-0.5, num_clients - 0.5]) # Fix x-axis limits
+
+    
+    # --- Finalize plot (if we created it) ---
+    if _create_fig:
+        plt.tight_layout()
+        if show:
+            plt.show()
+        else:
+            plt.close()
+    
+    # (Return dict remains the same)
+    return {
+        'sample_counts': sample_counts,
+        'total_samples': total_samples,
+        'mean_samples': mean_samples,
+        'std_samples': std_samples,
+        'cv': cv,
+        'min_samples': min_samples,
+        'max_samples': max_samples,
+        'median_samples': median_samples,
+        'num_clients': len(sample_counts),
+        'clients_with_zero_samples': clients_with_zero,
+        'clients_with_samples': len(sample_counts) - clients_with_zero
+    }
+
+def visualize_federated_data_distribution(dataset, bias, num_workers, device='cpu', seed=1, 
+                                          server_pc=100, p=0.1, figsize=(16, 9), show=True):
+    """
+    Complete visualization of federated learning data distribution.
+    
+    This function loads, assigns, and visualizes data, coordinating helper
+    functions to plot sample and class distributions.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import torch
+    
+    print(f"Loading {dataset} dataset with bias={bias}, {num_workers} clients...")
+    
+    # 1. Load Data
+    train_loader, test_loader = load_data(dataset, seed)
+    
+    # 2. Get Shapes
+    num_inputs, num_outputs, num_labels = get_shapes(dataset)
+    
+    # 3. Assign Data
+    server_data, server_label, each_worker_data, each_worker_label = assign_data(
+        train_loader, bias, device, num_labels, num_workers, server_pc, p, dataset, seed
+    )
+    
+    # 4. Create Figure and Subplots
+    fig = plt.figure(figsize=figsize)
+    fig.suptitle(f'Federated Data Distribution: {dataset} (Bias={bias}, Clients={num_workers})', 
+                 fontsize=16, y=1.02)
+    
+    gs = fig.add_gridspec(2, 2, height_ratios=[1, 1], width_ratios=[1, 1])
+    
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax3 = fig.add_subplot(gs[1, :])
+    
+    # 5. Plot Sample Distribution (using the helper on ax1, ax2)
+    sample_stats = plot_client_sample_distribution(
+        each_worker_data, 
+        dataset=dataset, 
+        show=False, 
+        ax1=ax1, 
+        ax2=ax2
+    )
+    
+    # 6. Plot IID-ness (using the helper on ax3)
+    iid_stats = plot_iidness(
+        each_worker_label, 
+        dataset=dataset, 
+        top_n_workers=len(each_worker_label), 
+        show=False, 
+        ax=ax3
+    )
+    
+    # 7. Finalize Plot
+    plt.tight_layout(rect=[0, 0.03, 1, 0.98]) # Adjust for suptitle and text
+    
+    if show:
+        plt.show()
+    else:
+        plt.close()
+    
+    # 8. Print Summary to Console
+    print(f"\n=== Federated Learning Data Distribution Summary ===")
+    print(f"Dataset: {dataset}")
+    print(f"Bias level: {bias:.2f} (0.0=IID, 1.0=non-IID)")
+    print(f"Number of clients: {sample_stats['num_clients']}")
+    print(f"Total client samples: {sample_stats['total_samples']:,}")
+    print(f"Mean samples per client: {sample_stats['mean_samples']:.1f} ± {sample_stats['std_samples']:.1f}")
+    print(f"Min/Max samples per client: {sample_stats['min_samples']}/{sample_stats['max_samples']}")
+    print(f"Clients with zero samples: {sample_stats['clients_with_zero_samples']}")
+    print(f"Mean KL divergence to global: {iid_stats['mean_kl']:.4f}")
+    print(f"Mean entropy per client: {iid_stats['mean_entropy']:.4f}")
+    print(f"Server samples: {server_data.shape[0] if isinstance(server_data, torch.Tensor) else len(server_data)}")
+    
+    # 9. Return comprehensive statistics
+    return {
+        'dataset': dataset,
+        'bias': bias,
+        'num_workers': num_workers,
+        'server_samples': server_data.shape[0] if isinstance(server_data, torch.Tensor) else len(server_data),
+        'sample_stats': sample_stats,
+        'iid_stats': iid_stats,
+        'each_worker_data': each_worker_data,
+        'each_worker_label': each_worker_label,
+        'server_data': server_data,
+        'server_label': server_label
+    }

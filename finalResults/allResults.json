@@ -1,0 +1,78 @@
+[
+    {
+        "meta_data": {
+            "exp_id": 0,
+            "net": "resnet18",
+            "server_pc": 100,
+            "dataset": "MNIST",
+            "bias": 0.0,
+            "p": 0.1,
+            "niter": 50,
+            "nworkers": 100,
+            "batch_size": 16,
+            "lr": 0.1,
+            "gpu": 1,
+            "seed": 1,
+            "nruns": 1,
+            "test_every": 10,
+            "aggregation": "shieldfl",
+            "flod_threshold": 0.5,
+            "flame_epsilon": 3000,
+            "flame_delta": 0.001,
+            "dnc_niters": 5,
+            "dnc_c": 1,
+            "dnc_b": 2000,
+            "n_groups": 5,
+            "assumed_mal_prct": 0.1,
+            "factorGraphs_num_iters": 100,
+            "factorGraphs_temperature": 0.1,
+            "factorGraphs_initial_threshold": 0.5,
+            "factorGraphs_observation_method": "binarySignguard",
+            "factorGraphs_likelihood_sigma": 2,
+            "factorGraphs_true_negative_rate": 0.7,
+            "factorGraphs_true_positive_rate": 0.7,
+            "factorGraphs_shuffling_strategy": "random",
+            "factorGraphs_highProbThreshold": 0.9,
+            "nbyz": 10,
+            "byz_type": "label_flipping_attack",
+            "mpspdz": false,
+            "port": 14000,
+            "chunk_size": 200,
+            "protocol": "semi2k",
+            "players": 2,
+            "threads": 1,
+            "parallels": 1,
+            "always_compile": false,
+            "metaArgs_id": "34c419d91716e631861be9df07a99f7731d23a757736494c30f6bb08e619d543"
+        },
+        "results": {
+            "rounds": [
+                9,
+                19,
+                29,
+                39,
+                49
+            ],
+            "accuracy": [
+                0.5299,
+                0.7757,
+                0.8571,
+                0.9026,
+                0.9213
+            ],
+            "backdoor_success": [
+                null,
+                null,
+                null,
+                null,
+                null
+            ],
+            "stats": {
+                "best_accuracy": 0.9213,
+                "last_accuracy": 0.9213,
+                "backdoor_success_at_best_accuracy": null,
+                "last_backdoor_success": null
+            }
+        }
+    }
+]
