@@ -263,7 +263,7 @@ def get_device(device):
     return ctx
 
 
-def get_net(net_type, num_inputs, num_outputs=10, dataset= None, resnet_pretrained=False):
+def get_net(net_type, num_inputs, num_outputs=10, dataset= None, pretrained=False):
     """
     Selects the model architecture.
     net_type: name of the model architecture
@@ -296,9 +296,26 @@ def get_net(net_type, num_inputs, num_outputs=10, dataset= None, resnet_pretrain
             arch=net_type,
             input_shape=input_shape,
             num_classes=num_outputs,
-            pretrained=resnet_pretrained,
+            pretrained=pretrained,
         )
-
+    elif net_type == "mobilenet_v3_small":
+        from models import mobileNetV3_small as mobileNetV3_small_models
+        input_shape = mobileNetV3_small_models.infer_image_shape(num_inputs, dataset)
+        net = mobileNetV3_small_models.MobileNetV3SmallClassifier(
+            arch=net_type,
+            input_shape=input_shape,
+            num_classes=num_outputs,
+            pretrained=pretrained,
+        )
+    elif net_type == "vit_base":
+        from models import ViT_base as ViT_base_models
+        input_shape = ViT_base_models.infer_image_shape(num_inputs, dataset)
+        net = ViT_base_models.ViTBaseClassifier(
+            arch="vit_b_16",
+            input_shape=input_shape,
+            num_classes=num_outputs,
+            pretrained=pretrained,
+        )
     else:
         raise NotImplementedError
     return net

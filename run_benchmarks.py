@@ -5,11 +5,11 @@ import sys
 # /m:/PythonTests/newSafeFL/SAFEFL/run_benchmarks.py
 
 # customize these lists as needed
-datasets = ["FEMNIST"]
+datasets = ["FEMNIST", 'MNIST', 'CIFAR10']
 bias_values = [0, 0.1, 0.3, 0.5][::-1]
 
 base_args = [
-    "--nworkers", "100",
+    "--nworkers", "500",
     "--batch_size", "32",
     "--niter", "500", #2500
     "--lr", "0.05",
