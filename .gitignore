@@ -148,7 +148,10 @@ mp-spdz-0.3.2.tar.xz
 !mpspdz/Programs/Source/mpc_fedavg_server.mpc
 **/.claude/settings.local.json
 # RSULTS
-results/
+results/*.csv
+results/*.txt
+results/hierarchical/*.csv
+
 score_function_viz/*.csv
 figures/
 data/
