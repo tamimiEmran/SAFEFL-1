@@ -21,22 +21,30 @@ DATASET_SHAPES: Dict[str, Tuple[int, int, int]] = {
 }
 
 
-def _load_resnet18(num_classes: int, in_channels: int = 3, pretrained: bool = True) -> ResNet:
+def _load_resnet18(num_classes: int, in_channels: int = 3, pretrained: bool = False) -> ResNet:
     if pretrained and in_channels != 3:
         raise ValueError(
             f"Pretrained ResNet18 weights require 3-channel inputs (got in_channels={in_channels})"
         )
 
-
-    weights = ResNet18_Weights.DEFAULT  
+    # --- THIS IS THE FIX ---
+    # Set weights to DEFAULT if pretrained=True, else set to None for from-scratch training
+    weights = ResNet18_Weights.DEFAULT if pretrained else None
     model = resnet18(weights=weights)
-
+    # --- END FIX ---
     
     # Adjust first convolution for small images/grayscale support
     conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1, bias=False)
+    
     if pretrained and in_channels == 3:
         # copy pretrained weights (identical shape)
         conv1.weight.data.copy_(model.conv1.weight.data)
+    elif not pretrained:
+        # If not pretrained, we are training from scratch, so the new conv1 is fine as is.
+        # If pretrained=True and in_channels=1 (e.g., MNIST), we can't copy weights,
+        # so this new conv1 layer will be trained from scratch (which is expected).
+        pass 
+        
     model.conv1 = conv1
     model.maxpool = nn.Identity()
 
@@ -47,103 +55,30 @@ def _load_resnet18(num_classes: int, in_channels: int = 3, pretrained: bool = Tr
     return model
 
 
-def _conv3x3(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
-
-
-class _CifarBasicBlock(nn.Module):
-    expansion = 1
-
-    def __init__(self, in_planes: int, planes: int, stride: int = 1) -> None:
-        super().__init__()
-        self.conv1 = _conv3x3(in_planes, planes, stride)
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.relu = nn.ReLU(inplace=True)
-        self.conv2 = _conv3x3(planes, planes)
-        self.bn2 = nn.BatchNorm2d(planes)
-
-        self.shortcut = nn.Identity()
-        if stride != 1 or in_planes != planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(planes),
-            )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
-        out = self.relu(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
-        out += self.shortcut(x)
-        out = self.relu(out)
-        return out
-
-
-class _CifarResNet(nn.Module):
-    def __init__(self, num_blocks: Tuple[int, int, int], num_classes: int, in_channels: int) -> None:
-        super().__init__()
-        self.in_planes = 16
-
-        self.conv1 = _conv3x3(in_channels, 16)
-        self.bn1 = nn.BatchNorm2d(16)
-        self.relu = nn.ReLU(inplace=True)
-        self.layer1 = self._make_layer(16, num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(32, num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(64, num_blocks[2], stride=2)
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(64, num_classes)
-
-    def _make_layer(self, planes: int, blocks: int, stride: int) -> nn.Sequential:
-        strides = [stride] + [1] * (blocks - 1)
-        layers = []
-        for stride in strides:
-            layers.append(_CifarBasicBlock(self.in_planes, planes, stride))
-            self.in_planes = planes
-        return nn.Sequential(*layers)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
-        out = self.relu(self.bn1(self.conv1(x)))
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = self.avgpool(out)
-        out = torch.flatten(out, 1)
-        return self.fc(out)
-
-    def extract_features(self, x: torch.Tensor) -> torch.Tensor:
-        out = self.relu(self.bn1(self.conv1(x)))
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = self.avgpool(out)
-        return torch.flatten(out, 1)
-
-
-def _load_resnet20(num_classes: int, in_channels: int = 3) -> nn.Module:
-    """Construct the CIFAR-style ResNet-20 network."""
-    return _CifarResNet((3, 3, 3), num_classes=num_classes, in_channels=in_channels)
-
-
 class ResNetClassifier(nn.Module):
-    """Wraps torchvision ResNet models to accept flattened inputs."""
+    """Wraps torchvision ResNet18 model to accept flattened inputs."""
 
     def __init__(
         self,
-        arch: str,
+        arch: str,  # <-- Re-added for backward compatibility
         input_shape: Tuple[int, int, int],
         num_classes: int,
         pretrained: bool = False,
     ) -> None:
         super().__init__()
+        
+        # --- Compatibility Check ---
+        if arch != "resnet18":
+            raise ValueError(
+                f"This ResNetClassifier implementation only supports 'resnet18', but got arch='{arch}'"
+            )
+        # ---------------------------
+
         self.input_shape = input_shape
         in_channels = input_shape[0]
 
-        if arch == "resnet18":
-            backbone = _load_resnet18(num_classes=num_classes, in_channels=in_channels, pretrained=pretrained)
-        elif arch == "resnet20":
-            if input_shape[1:] != (32, 32):
-                raise ValueError("ResNet-20 is defined for 32x32 images (CIFAR-style)")
-            backbone = _load_resnet20(num_classes=num_classes, in_channels=in_channels)
-        else:  # pragma: no cover - safeguarded by get_net
-            raise ValueError(f"Unsupported ResNet architecture: {arch}")
+        # Directly load ResNet18, correctly passing the 'pretrained' flag
+        backbone = _load_resnet18(num_classes=num_classes, in_channels=in_channels, pretrained=pretrained)
 
         self.backbone = backbone
 
@@ -157,26 +92,6 @@ class ResNetClassifier(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
         x = self._reshape(x)
         return self.backbone(x)
-    """
-    def getPLR(self, x: torch.Tensor) -> torch.Tensor:
-        x = self._reshape(x)
-        layers = self.backbone
-        if hasattr(layers, "layer4"):
-            x = layers.conv1(x)
-            x = layers.bn1(x)
-            x = layers.relu(x)
-            x = layers.maxpool(x)
-            x = layers.layer1(x)
-            x = layers.layer2(x)
-            x = layers.layer3(x)
-            x = layers.layer4(x)
-            x = layers.avgpool(x)
-            return torch.flatten(x, 1)
-        if hasattr(layers, "extract_features"):
-            return layers.extract_features(x)
-        raise AttributeError("Backbone does not expose feature extraction pathway")
-    
-    """
 
 
 def infer_image_shape(num_inputs: int, dataset: Optional[str] = None) -> Tuple[int, int, int]:
