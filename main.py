@@ -216,6 +216,8 @@ def parse_args():
     parser.add_argument("--factorGraphs_shuffling_strategy", help="shuffling strategy for factor graphs", type=str, default="random")
     #highProbThreshold
     parser.add_argument("--factorGraphs_highProbThreshold", help="high probability threshold for factor graphs", type=float, default=0.9)
+    # factorGraphs_prob_sort_temp
+    parser.add_argument("--factorGraphs_prob_sort_temp", help="probability sort temperature for factor graphs", type=float, default=0.1)
 
 
     ### Attacks
