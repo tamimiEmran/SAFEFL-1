@@ -25,10 +25,47 @@ from scipy.stats import norm
 import torch
 import numpy as np
 from functools import reduce
+from bayesian.grouping import initialize_grouping_params, _group_and_sum_gradients, _SG_group_and_sum_gradients
+import random
+def groupParams(param_list, group_size):
+
+    param_list = [p.clone() for p in param_list]
+        # users included
+    gradients_included = {id: grad for id, grad in enumerate(param_list)}
+
+    # shuffle IDs
+    shuffled_ids = list(gradients_included.keys())
+    random.shuffle(shuffled_ids)
+    gradients_included = {id: gradients_included[id] for id in shuffled_ids}
+
+    # ensure that all groups have the group size, if not divisible ensure the last group has more than the group size.
+    groups = {}
+    group_id = 0
+    ids_list = list(gradients_included.keys())
+
+    for i in range(0, len(ids_list), group_size):
+        group_indices = ids_list[i:i + group_size]
+        
+        # If this is the last group and it's smaller than group_size, merge with previous group
+        if len(group_indices) < group_size and group_id > 0:
+            # Merge with the previous group
+            groups[group_id - 1] = (group_id - 1, groups[group_id - 1][1] + group_indices)
+        else:
+            groups[group_id] = (group_id, group_indices)
+            group_id += 1
+
+    # Extract group gradients
+    group_gradients = {}
+    for gid, (_, indices) in groups.items():
+        # compute global model update
+        gradients_to_be_summed = [gradients_included[idx] for idx in indices]
+        group_gradients[gid]  = torch.sum(torch.stack(gradients_to_be_summed), dim=0)
+
+    return groups, group_gradients
 
 def divide_and_conquer_bb_probs(gradients, net, lr, f, byz, device,
                                 niters, c, b,
-                                alpha=1.0, beta=1.0):
+                                alpha=1.0, beta=1.0, group_size = 0):
     """
     Divide-and-conquer aggregation + Beta-Binomial maliciousness probabilities.
 
@@ -40,6 +77,9 @@ def divide_and_conquer_bb_probs(gradients, net, lr, f, byz, device,
                   for x in gradients]
     # let the malicious clients perform the byzantine attack
     param_list = byz(param_list, net, lr, f, device)
+
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
     
     n = len(param_list)
     survive_counts = np.zeros(n, dtype=int)
@@ -83,7 +123,7 @@ def divide_and_conquer_bb_probs(gradients, net, lr, f, byz, device,
     return p_malicious
 
 
-def fltrust(gradients, net, lr, f, byz, device):
+def fltrust(gradients, net, lr, f, byz, device, group_size = 0):
     """
     Based on the description in https://arxiv.org/abs/2012.13995
     gradients: list of gradients. The last one is the server update.
@@ -94,8 +134,14 @@ def fltrust(gradients, net, lr, f, byz, device):
     device: computation device.
     """
     param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
+    server_update = param_list[-1]
+    param_list = param_list[:-1]
     # let the malicious clients (first f clients) perform the byzantine attack
     param_list = byz(param_list, net, lr, f, device)
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
+
+    param_list.append(server_update)
     n = len(param_list) - 1
 
     # use the last gradient (server update) as the trusted source
@@ -165,7 +211,7 @@ def _fedavg(gradients, net, lr, f, byz, device, data_sizes):
         idx += torch.numel(param)
 
 
-def krum(gradients, net, lr, f, byz, device):
+def krum(gradients, net, lr, f, byz, device, group_size = 0):
     """
     Based on the description in https://papers.nips.cc/paper/2017/hash/f4b9ec30ad9f68f89b29639786cb62ef-Abstract.html
     gradients: list of gradients.
@@ -181,6 +227,9 @@ def krum(gradients, net, lr, f, byz, device):
         param_list = byz(param_list, net, lr, f, device)[:-1]
     else:
         param_list = byz(param_list, net, lr, f, device)
+
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
     n = len(param_list)
 
     # compute pairwise Euclidean distance
@@ -201,7 +250,7 @@ def krum(gradients, net, lr, f, byz, device):
         idx += torch.numel(param)
 
 
-def trim_mean(gradients, net, lr, f, byz, device):
+def trim_mean(gradients, net, lr, f, byz, device, group_size = 0):
     """
     Based on the description in https://arxiv.org/abs/1803.01498
     gradients: list of gradients.
@@ -217,6 +266,9 @@ def trim_mean(gradients, net, lr, f, byz, device):
         param_list = byz(param_list, net, lr, f, device)[:-1]
     else:
         param_list = byz(param_list, net, lr, f, device)
+
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
     n = len(param_list)
 
     # trim f biggest and smallest values of gradients
@@ -230,7 +282,7 @@ def trim_mean(gradients, net, lr, f, byz, device):
         idx += torch.numel(param)
 
 
-def median(gradients, net, lr, f, byz, device):
+def median(gradients, net, lr, f, byz, device, group_size = 0):
     """
     Based on the description in https://arxiv.org/abs/1803.01498
     gradients: list of gradients.
@@ -246,6 +298,9 @@ def median(gradients, net, lr, f, byz, device):
         param_list = byz(param_list, net, lr, f, device)[:-1]
     else:
         param_list = byz(param_list, net, lr, f, device)
+
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
     n = len(param_list)
 
     # compute median of gradients
@@ -258,7 +313,7 @@ def median(gradients, net, lr, f, byz, device):
         idx += torch.numel(param)
 
 
-def flame(gradients, net, lr, f, byz, device, epsilon, delta):
+def flame(gradients, net, lr, f, byz, device, epsilon, delta, group_size = 0):
     """
     Based on the description in https://arxiv.org/abs/2101.02281
     gradients: list of gradients.
@@ -276,6 +331,9 @@ def flame(gradients, net, lr, f, byz, device, epsilon, delta):
         param_list = byz(param_list, net, lr, f, device)[:-1]
     else:
         param_list = byz(param_list, net, lr, f, device)
+
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
     n = len(param_list)
 
     # compute pairwise cosine distances
@@ -318,7 +376,7 @@ def flame(gradients, net, lr, f, byz, device, epsilon, delta):
         idx += torch.numel(param)
 
 
-def shieldfl(gradients, net, lr, f, byz, device, previous_gloabl_gradient, iteration, previous_gradients):
+def shieldfl(gradients, net, lr, f, byz, device, previous_gloabl_gradient, iteration, previous_gradients, group_size = 0):
     
     """
     Based on the description in https://ieeexplore.ieee.org/document/9762272
@@ -341,6 +399,9 @@ def shieldfl(gradients, net, lr, f, byz, device, previous_gloabl_gradient, itera
         param_list = byz(param_list, net, lr, f, device)[:-1]
     else:
         param_list = byz(param_list, net, lr, f, device)
+
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
     n = len(param_list)
 
     copy_params = [param.clone() for param in param_list]
@@ -402,7 +463,7 @@ def shieldfl(gradients, net, lr, f, byz, device, previous_gloabl_gradient, itera
     return global_update, copy_params  # return gradients of gobal model and local models for next iteration of iteration
 
 
-def flod(gradients, net, lr, f, byz, device, threshold):
+def flod(gradients, net, lr, f, byz, device, threshold, group_size = 0):
     """
     Based on the description in https://eprint.iacr.org/2021/993
     gradients: list of gradients. The last one is the server update.
@@ -416,6 +477,13 @@ def flod(gradients, net, lr, f, byz, device, threshold):
     param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
     # let the malicious clients (first f clients) perform the byzantine attack
     param_list = byz(param_list, net, lr, f, device)
+
+    server_update = param_list[-1]
+    param_list = param_list[:-1]
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
+    param_list.append(server_update)
+    
     n = len(param_list) - 1
 
     # sgn encoding
@@ -453,10 +521,10 @@ def flod(gradients, net, lr, f, byz, device, threshold):
         idx += torch.numel(param)
 
 
-def divide_and_conquer(gradients, net, lr, f, byz, device, niters, c, b):
+def divide_and_conquer(gradients, net, lr, f, byz, device, niters, c, b, group_size = 0):
     """
     The divide and conquer aggregation rule defined in https://www.ndss-symposium.org/wp-content/uploads/ndss2021_6C-3_24498_paper.pdf
-    gradients: list of gradients. The last one is the server update.
+    gradients: list of gradients.
     net: model parameters.
     lr: learning rate.
     f: number of malicious clients. The first f clients are malicious.
@@ -472,6 +540,10 @@ def divide_and_conquer(gradients, net, lr, f, byz, device, niters, c, b):
     # let the malicious clients (first f clients) perform the byzantine attack
     param_list = byz(param_list, net, lr, f, device)
 
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
+    
+    n = len(param_list)
     good_set = list()
 
     for i in range(niters):
@@ -540,7 +612,7 @@ def mpspdz_aggregation(gradients, net, lr, f, byz, device, param_num, port, chun
         idx += torch.numel(param)
 
 
-def foolsgold(gradients, net, lr, f, byz, device, gradient_history):
+def foolsgold(gradients, net, lr, f, byz, device, gradient_history, group_size = 0):
     """
     Based on the description in https://arxiv.org/abs/1808.04866
     gradients: list of gradients.
@@ -565,6 +637,8 @@ def foolsgold(gradients, net, lr, f, byz, device, gradient_history):
     else:
         param_list = byz(param_list, net, lr, f, device)
 
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
     n = len(param_list)
 
     for i in range(n):
@@ -610,7 +684,7 @@ def foolsgold(gradients, net, lr, f, byz, device, gradient_history):
     return gradient_history
 
 
-def contra(gradients, net, lr, f, byz, device, gradient_history, reputation, cos_dist, C=1):
+def contra(gradients, net, lr, f, byz, device, gradient_history, reputation, cos_dist, C=1, group_size = 0):
     """
     Based on the description in https://par.nsf.gov/servlets/purl/10294585
     gradients: list of gradients.
@@ -631,6 +705,8 @@ def contra(gradients, net, lr, f, byz, device, gradient_history, reputation, cos
     else:
         param_list = byz(param_list, net, lr, f, device)
 
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
     n = len(param_list)
 
     # parameters
@@ -685,9 +761,9 @@ def contra(gradients, net, lr, f, byz, device, gradient_history, reputation, cos
     return gradient_history, reputation, cos_dist
 
 
-from bayesian.benchmarkingGrouping import _group_and_sum_gradientsFORSIGNGUARD as signgaurd_sg_experiment
 
-def signguard(gradients, net, lr, f, byz, device, seed):
+
+def signguard(gradients, net, lr, f, byz, device, seed, group_size = 0):
     """
     Based on the description in https://arxiv.org/abs/2109.05872
     gradients: list of gradients.
@@ -707,8 +783,8 @@ def signguard(gradients, net, lr, f, byz, device, seed):
     else:
         param_list = byz(param_list, net, lr, f, device)
 
-
-    param_list = signgaurd_sg_experiment(param_list)   
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
     n = len(param_list)
 
     num_params = param_list[0].size(0)
@@ -773,7 +849,7 @@ def signguard(gradients, net, lr, f, byz, device, seed):
         idx += torch.numel(param)
 
 
-def flare(gradients, net, lr, f, byz, device, server_data):
+def flare(gradients, net, lr, f, byz, device, server_data, group_size = 0):
     """
     Based on the description in https://dl.acm.org/doi/10.1145/3488932.3517395
     gradients: list of gradients.
@@ -788,6 +864,8 @@ def flare(gradients, net, lr, f, byz, device, server_data):
     # let the malicious clients (first f clients) perform the byzantine attack
     grad_list = byz(grad_list, net, lr, f, device)
 
+    if group_size > 0:
+        _, grad_list = groupParams(grad_list, group_size)
     nclients = len(grad_list)
 
     # Create models for each client to determine penultimate layer representation PLR of auxiliary data (server dataset)
@@ -837,7 +915,7 @@ def flare(gradients, net, lr, f, byz, device, server_data):
 
 
 
-def romoa(gradients, net, lr, f, byz, device, F, prev_global_update, seed):   # adapted from the original implementation provided by the authors
+def romoa(gradients, net, lr, f, byz, device, F, prev_global_update, seed, group_size = 0):   # adapted from the original implementation provided by the authors
     """
     Based on the description in https://link.springer.com/chapter/10.1007/978-3-030-88418-5_23
     gradients: list of gradients.
@@ -857,6 +935,8 @@ def romoa(gradients, net, lr, f, byz, device, F, prev_global_update, seed):   # 
     else:
         param_list = byz(param_list, net, lr, f, device)
 
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
     n = len(param_list)
     num_params = param_list[0].size(0)
     beta = 0.5
@@ -1009,7 +1089,6 @@ from pgmax import fgraph, infer
 from pgmax.factor import EnumFactor
 from itertools import product
 from pgmax.infer import BP, get_marginals
-from bayesian.grouping import initialize_grouping_params, _group_and_sum_gradients, _SG_group_and_sum_gradients
 from bayesian.components import observation_function
 from bayesian.factor_graph import _maybe_init_bayesian_and_csv
 import random
@@ -1212,7 +1291,10 @@ def factorGraphs(gradients, net, lr, f, byz, device, bayesian_params):
 
         
     else:
-        groups, group_gradients = _group_and_sum_gradients(param_list, bayesian_params)
+        #for benchmarking use 
+        group_size = bayesian_params.get("group_size", 2)
+        _, param_list = groupParams(param_list, group_size)
+        #groups, group_gradients = _group_and_sum_gradients(param_list, bayesian_params)
     # Stage 4: inference, logging, and model update
     bayesian_params = _run_inference_and_update(
         bayesian_params=bayesian_params,
@@ -1234,7 +1316,7 @@ import pandas as pd
 from visualize_scoringfunction import round_full_scores
 
 #########################################
-def fedavg(gradients, net, lr, f, byz, device, data_sizes):
+def fedavg(gradients, net, lr, f, byz, device, data_sizes, group_size = 0):
     """
     Based on the description in https://arxiv.org/abs/1602.05629
     gradients: list of gradients.
@@ -1252,7 +1334,8 @@ def fedavg(gradients, net, lr, f, byz, device, data_sizes):
     else:
         param_list = byz(param_list, net, lr, f, device)
 
-
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
     #the first time this functin is called set a round_id to 1. Then every time this function is called increment the round_id by 1.
     if "round_id" not in fedavg.__dict__:
         fedavg.round_id = 1

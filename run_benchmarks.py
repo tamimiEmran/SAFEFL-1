@@ -6,7 +6,13 @@ import sys
 
 # customize these lists as needed
 datasets = ["FEMNIST", 'MNIST', 'CIFAR10']
-bias_values = [0, 0.1, 0.3, 0.5][::-1]
+bias_values = [0, 0.1, 0.3, 0.5]
+models = ["resnet18", "mobilenet_v3_small", "vit_base"]
+attack_types = ["scaling_attack", "label_flipping_attack"]
+defences = ["fedavg", "krum", "trim_mean", "median", "flame", "shieldfl", "divide_and_conquer", "foolsgold", "contra", "signguard", "flare", "romoa", "factorGraphs"]
+isGrouped = [True, False]
+group_size = [2, 5, 10, 20]
+nbyz = [0, 25, 50]
 
 base_args = [
     "--nworkers", "500",

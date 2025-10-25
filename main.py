@@ -182,6 +182,7 @@ def parse_args():
     parser.add_argument("--seed", help="seed", type=int, default=1)
     parser.add_argument("--nruns", help="number of runs for averaging accuracy", type=int, default=1)
     parser.add_argument("--test_every", help="testing interval", type=int, default=5)
+    parser.add_argument("--isGrouped", help="is grouped", type=bool, default=False)
 
     ### Aggregations
     parser.add_argument("--aggregation", help="aggregation", type=str, default="fedavg")
@@ -538,6 +539,10 @@ def main(args):
     The main function that runs the entire training process of the model.
     args: arguments defining hyperparameters
     """
+    if args.isGrouped:
+        group_size = args.group_size
+    else:
+        group_size = 0
     import hashlib
     #hash all the arguments and make it a string. will be the ID of the experiment. 
     args_string = hashlib.sha256(str(args).encode()).hexdigest()
@@ -657,21 +662,6 @@ def main(args):
             previous_global_gradient = torch.cat([param.clone().detach().flatten() for param in net.parameters()]).reshape(-1, 1) + torch.normal(mean=0, std=1e-7, size=(num_params, 1)).to(device)
             sanitization_factor = torch.full(size=(args.nworkers, num_params), fill_value=(1 / args.nworkers)).to(device)  # sanitization factors for Romoa
 
-        elif args.aggregation == "heirichalFL":
-            # number of groups
-            
-            if run == 1:
-                # initialize the parameters for the first run
-                n_groups = args.n_groups
-                assumed_mal_prct = args.assumed_mal_prct
-                n_users = args.nworkers
-                exp_id = args.exp_id
-                attack_type = args.byz_type
-
-                heirichal_params = { "experiment_id": exp_id, "attack type":attack_type , \
-                    "assumed_mal_prct":assumed_mal_prct , "user membership": [], "user score": [0 for i in range(n_users)], "round": 0, "num groups": n_groups, \
-                                    "history": [{'round_num': int, 'user_membership': list, 'user_score_adjustment': list, \
-                                                 'group_scores': list,"user_scores": list, "global_gradient": torch.tensor}]}
                 
         elif args.aggregation == 'factorGraphs':
             if run == 1:
@@ -769,56 +759,52 @@ def main(args):
                     aggregation_rules.mpspdz_aggregation(grad_list, net, args.lr, args.nbyz, byz, device, param_num=num_params, port=args.port, chunk_size=args.chunk_size, parties=args.players)
 
                 elif args.aggregation == "fltrust":
-                    aggregation_rules.fltrust(grad_list, net, args.lr, args.nbyz, byz, device)
+                    aggregation_rules.fltrust(grad_list, net, args.lr, args.nbyz, byz, device, group_size=group_size)
 
                 elif args.aggregation == "fedavg":
                     data_sizes = [x.size(dim=0) for x in each_worker_data]
                     # make the data_sizes the same for all workers
                     data_sizes = [max(data_sizes) for i in range(args.nworkers)]
-                    aggregation_rules.fedavg(grad_list, net, args.lr, args.nbyz, byz, device, data_sizes)
+                    aggregation_rules.fedavg(grad_list, net, args.lr, args.nbyz, byz, device, data_sizes, group_size=group_size)
 
                 elif args.aggregation == "krum":
-                    aggregation_rules.krum(grad_list, net, args.lr, args.nbyz, byz, device)
+                    aggregation_rules.krum(grad_list, net, args.lr, args.nbyz, byz, device, group_size=group_size)
 
                 elif args.aggregation == "trim_mean":
-                    aggregation_rules.trim_mean(grad_list, net, args.lr, args.nbyz, byz, device)
+                    aggregation_rules.trim_mean(grad_list, net, args.lr, args.nbyz, byz, device, group_size=group_size)
 
                 elif args.aggregation == "median":
-                    aggregation_rules.median(grad_list, net, args.lr, args.nbyz, byz, device)
+                    aggregation_rules.median(grad_list, net, args.lr, args.nbyz, byz, device, group_size=group_size)
 
                 elif args.aggregation == "flame":
-                    aggregation_rules.flame(grad_list, net, args.lr, args.nbyz, byz, device, epsilon=args.flame_epsilon, delta=args.flame_delta)
+                    aggregation_rules.flame(grad_list, net, args.lr, args.nbyz, byz, device, epsilon=args.flame_epsilon, delta=args.flame_delta, group_size=group_size)
 
                 elif args.aggregation == "shieldfl":
-                    previous_global_gradient, previous_gradients = aggregation_rules.shieldfl(grad_list, net, args.lr, args.nbyz, byz, device, previous_global_gradient, e, previous_gradients)
+                    previous_global_gradient, previous_gradients = aggregation_rules.shieldfl(grad_list, net, args.lr, args.nbyz, byz, device, previous_global_gradient, e, previous_gradients, group_size=group_size)
 
                 elif args.aggregation == "flod":
-                    aggregation_rules.flod(grad_list, net, args.lr, args.nbyz, byz, device, threshold=math.floor(num_params * args.flod_threshold))
+                    aggregation_rules.flod(grad_list, net, args.lr, args.nbyz, byz, device, threshold=math.floor(num_params * args.flod_threshold), group_size=group_size)
 
                 elif args.aggregation == "divide_and_conquer":
-                    aggregation_rules.divide_and_conquer(grad_list, net, args.lr, args.nbyz, byz, device, niters=args.dnc_niters, c=args.dnc_c, b=args.dnc_b)
+                    aggregation_rules.divide_and_conquer(grad_list, net, args.lr, args.nbyz, byz, device, niters=args.dnc_niters, c=args.dnc_c, b=args.dnc_b, group_size=group_size)
 
                 elif args.aggregation == "foolsgold":
-                    gradient_history = aggregation_rules.foolsgold(grad_list, net, args.lr, args.nbyz, byz, device, gradient_history=gradient_history)
+                    gradient_history = aggregation_rules.foolsgold(grad_list, net, args.lr, args.nbyz, byz, device, gradient_history=gradient_history, group_size=group_size)
 
                 elif args.aggregation == "contra":
-                    gradient_history, reputation, cos_dist = aggregation_rules.contra(grad_list, net, args.lr, args.nbyz, byz, device, gradient_history=gradient_history, reputation=reputation, cos_dist=cos_dist, C=1)
+                    gradient_history, reputation, cos_dist = aggregation_rules.contra(grad_list, net, args.lr, args.nbyz, byz, device, gradient_history=gradient_history, reputation=reputation, cos_dist=cos_dist, C=1, group_size=group_size)
 
                 elif args.aggregation == "signguard":
-                    aggregation_rules.signguard(grad_list, net, args.lr, args.nbyz, byz, device, seed=args.seed)
+                    aggregation_rules.signguard(grad_list, net, args.lr, args.nbyz, byz, device, seed=args.seed, group_size=group_size  )
 
                 elif args.aggregation == "flare":
-                    aggregation_rules.flare(grad_list, net, args.lr, args.nbyz, byz, device, server_data)
+                    aggregation_rules.flare(grad_list, net, args.lr, args.nbyz, byz, device, server_data, group_size=group_size)
 
                 elif args.aggregation == "romoa":
-                    sanitization_factor, previous_global_gradient = aggregation_rules.romoa(grad_list, net, args.lr, args.nbyz, byz, device, F=sanitization_factor, prev_global_update=previous_global_gradient, seed=args.seed)
+                    sanitization_factor, previous_global_gradient = aggregation_rules.romoa(grad_list, net, args.lr, args.nbyz, byz, device, F=sanitization_factor, prev_global_update=previous_global_gradient, seed=args.seed, group_size=group_size)
 
-                elif args.aggregation == "heirichalFL":
-                    
-                    
-                    heirichal_params = aggregation_rules.heirichalFL(grad_list, net, args.lr, args.nbyz, byz, device, heirichal_params, seed=args.seed)
+
                 elif args.aggregation == "factorGraphs":
-
                     factorGraph_params = aggregation_rules.factorGraphs(grad_list, net, args.lr, args.nbyz, byz, device, factorGraph_params)
                 else:
                     raise NotImplementedError
