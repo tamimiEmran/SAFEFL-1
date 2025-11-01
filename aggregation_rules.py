@@ -227,7 +227,9 @@ def krum(gradients, net, lr, f, byz, device, group_size = 0):
     byz: attack type.
     device: computation device.
     """
+    
     param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
+    assumedPct = f/(len(param_list))
     # let the malicious clients (first f clients) perform the byzantine attack
     if byz == attacks.fltrust_attack:
         param_list = byz(param_list, net, lr, f, device)[:-1]
@@ -236,7 +238,10 @@ def krum(gradients, net, lr, f, byz, device, group_size = 0):
 
     if group_size > 0:
         _, param_list = groupParams(param_list, group_size)
+        f = math.floor(assumedPct * len(param_list))
+
     n = len(param_list)
+    
 
     # compute pairwise Euclidean distance
     dist = torch.zeros((n, n)).to(device)
