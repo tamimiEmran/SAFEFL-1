@@ -8,7 +8,8 @@ import shlex
 # --- Corrected and Refactored Benchmark Script ---
 
 # customize these lists as needed
-datasets = ["FEMNIST", 'MNIST', 'CIFAR10']
+#datasets = ["FEMNIST", 'MNIST', 'CIFAR10']
+datasets = ['FEMNIST','MNIST']
 bias_values = [0, 0.5]
 #models = ["resnet18", "mobilenet_v3_small", "vit_base"] # Only keep resnet18
 models = ["resnet18"]

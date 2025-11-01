@@ -27,6 +27,11 @@ import numpy as np
 from functools import reduce
 from bayesian.grouping import initialize_grouping_params, _group_and_sum_gradients, _SG_group_and_sum_gradients
 import random
+# set seed 
+random.seed(42)
+np.random.seed(42)
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
 def groupParams(param_list, group_size):
 
     param_list = [p.clone() for p in param_list]
@@ -35,6 +40,7 @@ def groupParams(param_list, group_size):
 
     # shuffle IDs
     shuffled_ids = list(gradients_included.keys())
+    random.seed(42)
     random.shuffle(shuffled_ids)
     gradients_included = {id: gradients_included[id] for id in shuffled_ids}
 
