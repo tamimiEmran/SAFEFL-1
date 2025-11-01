@@ -32,8 +32,8 @@ random.seed(42)
 np.random.seed(42)
 torch.manual_seed(42)
 torch.cuda.manual_seed(42)
-def groupParams(param_list, group_size):
-
+def groupParams(param_list, group_size, isFactorGraph = False):
+    COMPARE_WITH = param_list[0].clone().shape
     param_list = [p.clone() for p in param_list]
         # users included
     gradients_included = {id: grad for id, grad in enumerate(param_list)}
@@ -67,7 +67,12 @@ def groupParams(param_list, group_size):
         gradients_to_be_summed = [gradients_included[idx] for idx in indices]
         group_gradients[gid]  = torch.sum(torch.stack(gradients_to_be_summed), dim=0)
 
-    return groups, group_gradients
+    
+    if isFactorGraph:
+        return groups, group_gradients
+    else:
+        return groups, [group_gradients[gid] for gid in group_gradients.keys()]
+
 
 def divide_and_conquer_bb_probs(gradients, net, lr, f, byz, device,
                                 niters, c, b,
@@ -1304,7 +1309,7 @@ def factorGraphs(gradients, net, lr, f, byz, device, bayesian_params):
     else:
         #for benchmarking use 
         group_size = bayesian_params.get("group_size", 2)
-        _, param_list = groupParams(param_list, group_size)
+        groups, group_gradients = groupParams(param_list, group_size, isFactorGraph = True)
         #groups, group_gradients = _group_and_sum_gradients(param_list, bayesian_params)
     # Stage 4: inference, logging, and model update
     bayesian_params = _run_inference_and_update(
