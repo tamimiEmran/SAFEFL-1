@@ -19,6 +19,31 @@ DATASET_SHAPES: Dict[str, Tuple[int, int, int]] = {
 }
 
 
+def _replace_batchnorm_with_groupnorm(module: nn.Module, num_groups: int = 8) -> None:
+    """
+    Recursively replaces all nn.BatchNorm2d layers with nn.GroupNorm.
+    A default of num_groups=8 is used, which is compatible with MobileNetV3-Small's
+    channel sizes (e.g., 16, 24, 40, 48, 96, 576).
+    """
+    for name, child in module.named_children():
+        if isinstance(child, nn.BatchNorm2d):
+            # Get properties from the BatchNorm layer
+            num_channels = child.num_features
+            eps = child.eps
+            affine = child.affine
+            
+            # Create the new GroupNorm layer
+            # All channel sizes in mobilenet_v3_small are divisible by 8
+            gn = nn.GroupNorm(num_groups=num_groups, num_channels=num_channels, eps=eps, affine=affine)
+            
+            # Replace the layer
+            setattr(module, name, gn)
+        
+        else:
+            # Recurse into submodules
+            _replace_batchnorm_with_groupnorm(child, num_groups)
+
+
 def _load_mobilenet_v3_small(num_classes: int, in_channels: int = 3, pretrained: bool = False) -> nn.Module:
     """
     Loads a MobileNetV3-Small model, modifying it for small images (e.g., CIFAR/MNIST)
@@ -32,6 +57,10 @@ def _load_mobilenet_v3_small(num_classes: int, in_channels: int = 3, pretrained:
     # Set weights to DEFAULT if pretrained=True, else set to None for from-scratch training
     weights = MobileNet_V3_Small_Weights.DEFAULT if pretrained else None
     model = mobilenet_v3_small(weights=weights)
+
+    # --- NEW: Replace all BatchNorm layers with GroupNorm for FL ---
+    _replace_batchnorm_with_groupnorm(model)
+    # --- End new code ---
 
     # --- Modify for small images / grayscale support ---
 
@@ -51,7 +80,6 @@ def _load_mobilenet_v3_small(num_classes: int, in_channels: int = 3, pretrained:
 
     if pretrained and in_channels == 3:
         # Copy weights. This works because kernel size (3x3) is the same.
-        # The ResNet18 example had a bug here (7x7 vs 3x3), but for MobileNetV3 it's correct.
         new_conv1.weight.data.copy_(original_conv1.weight.data)
     elif not pretrained:
         # If not pretrained, we are training from scratch, so the new conv1 is fine as is.
@@ -143,3 +171,4 @@ def infer_image_shape(num_inputs: int, dataset: Optional[str] = None) -> Tuple[i
             f"Input dimension mismatch for {dataset}. Expected flattened size {flattened}, got {num_inputs}."
         )
     return expected_shape
+

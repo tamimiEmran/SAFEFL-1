@@ -317,6 +317,16 @@ def get_net(net_type, num_inputs, num_outputs=10, dataset= None, pretrained=Fals
             num_classes=num_outputs,
             pretrained=pretrained,
         )
+
+    elif net_type == "eff_net":
+        from models import eff_net as eff_net_models
+        input_shape = eff_net_models.infer_image_shape(num_inputs, dataset)
+        net = eff_net_models.EfficientNetB0Classifier(
+            arch="efficientnet_b0",
+            input_shape=input_shape,
+            num_classes=num_outputs,
+            pretrained=pretrained,
+        )
     else:
         raise NotImplementedError
     return net
