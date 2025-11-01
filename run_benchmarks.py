@@ -9,13 +9,15 @@ import shlex
 
 # customize these lists as needed
 datasets = ["FEMNIST", 'MNIST', 'CIFAR10']
-bias_values = [0, 0.1, 0.3, 0.5]
-models = ["resnet18", "mobilenet_v3_small", "vit_base"]
+bias_values = [0, 0.5]
+models = ["resnet18", "mobilenet_v3_small", "vit_base"] # Only keep resnet18
+models = ["resnet18"]
 attack_types = ["no", "scaling_attack", "label_flipping_attack"]
-defences = ["fedavg", "krum", "trim_mean", "median", "flame", "shieldfl", "divide_and_conquer", "signguard", "flare", "romoa"]
+full_list_defences = ["fedavg", "krum", "trim_mean", "median", "flame", "shieldfl", "divide_and_conquer", "signguard", "flare", "romoa"] # Keep only 
+defences = ['fedavg', 'krum', 'shieldfl', 'signguard']
 isGrouped_list = [True, False]
-group_size_list = [2, 5, 10, 20, 50]
-nbyz_list = [5, 25, 50]
+group_size_list = [2, 5, 10, 20]
+nbyz_list = [25, 50]
 
 base_args = [
     "--nworkers", "500",
