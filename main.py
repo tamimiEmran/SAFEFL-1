@@ -199,11 +199,6 @@ def parse_args():
     parser.add_argument("--dnc_c", help="filtering fraction, percentage of number of malicious clients filtered", type=float, default=1)
     parser.add_argument("--dnc_b", help="dimension of subsamples must be smaller, then the dimension of the gradients", type=int, default=2000)
 
-    #heirichalFL
-    # number of groups
-    parser.add_argument("--n_groups", help="number of groups", type=int, default=5)
-    #assumed number of malcious users percentage. assumed_mal_prct
-    parser.add_argument("--assumed_mal_prct", help="assumed number of malcious users percentage", type=float, default=0.1)
 
     # bayesian FL
     # num_groups, gradient_threshold=0.5, aggregation_method='average'
@@ -225,7 +220,7 @@ def parse_args():
     parser.add_argument("--nbyz", help="# byzantines", type=int, default=6)
     parser.add_argument("--byz_type", help="type of attack", type=str, default="no", choices=["no", "trim_attack", "krum_attack",
                             "scaling_attack", "fltrust_attack", "label_flipping_attack", "min_max_attack", "min_sum_attack"])
-
+    parser.add_argument("--group_size", help="group size", type=int, default=0)
     ### MP-SPDZ
     parser.add_argument('--mpspdz', default=False, action='store_true', help='Run example in multiprocess mode')
     parser.add_argument("--port", help="port for the mpc servers", type=int, default=14000)
@@ -681,7 +676,7 @@ def main(args):
                     'num_rounds': args.niter,
                     'mixing_rounds': 100,
                     'initial_threshold': args.factorGraphs_initial_threshold,
-                    'group_size': args.n_groups,
+                    'group_size': args.group_size,
                     'observation_method': args.factorGraphs_observation_method,
                     'likelihood_sigma':     args.factorGraphs_likelihood_sigma, # higher sigma means more tolerance to different gradients
                     'true_negative_rate': args.factorGraphs_true_negative_rate,
