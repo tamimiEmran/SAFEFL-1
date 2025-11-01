@@ -80,16 +80,12 @@ for dataset in datasets:
                             "--dataset", dataset,
                             "--bias", str(bias),
                             "--net", model,
-                            "--attack_type", attack_type,
+                            "--byz_type", attack_type,
                             "--aggregation", defence,
                             "--isGrouped", str(toGroup)
                         ]
                         
-                        # *** LOGIC FIX ***
-                        # The original script had the "if toGroup:" but was
-                        # missing the "else:" block. This new structure
-                        # correctly handles both grouped and non-grouped cases.
-                        
+
                         if toGroup:
                             # --- Grouped Experiments ---
                             for g_size in group_size_list:
