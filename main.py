@@ -80,12 +80,12 @@ def save_results_to_csv(runs_test_accuracy, runs_backdoor_success, test_iteratio
             runs_backdoor_success = runs_backdoor_success.reshape(1, -1)
             
         backdoor_df = pd.DataFrame(runs_backdoor_success, columns=column_names)
-        backdoor_df.to_csv(f"results3rdOct/backdoor_dataset-{args.dataset}_nworkers-{args.nworkers}_n_groups-{args.n_groups}_aggregation-{args.aggregation}_byz_type-{args.byz_type}_nbyz-{args.nbyz}_bias-{args.bias}.csv", index=False)
+        backdoor_df.to_csv(f"results3rdOct/backdoor_dataset-{args.dataset}_nworkers-{args.nworkers}_group_size-{args.group_size}_aggregation-{args.aggregation}_byz_type-{args.byz_type}_nbyz-{args.nbyz}_bias-{args.bias}.csv", index=False)
     else:
         
         empty_runs_backdoor_success = [None] * len(test_iterations)
     # Save configuration
-    with open(f"results3rdOct/config_dataset-{args.dataset}_nworkers-{args.nworkers}_n_groups-{args.n_groups}_aggregation-{args.aggregation}_byz_type-{args.byz_type}_nbyz-{args.nbyz}_bias-{args.bias}.txt", 'w') as f:
+    with open(f"results3rdOct/config_dataset-{args.dataset}_nworkers-{args.nworkers}_group_size-{args.group_size}_aggregation-{args.aggregation}_byz_type-{args.byz_type}_nbyz-{args.nbyz}_bias-{args.bias}.txt", 'w') as f:
         for arg, value in vars(args).items():
             f.write(f"{arg}: {value}\n")
 
