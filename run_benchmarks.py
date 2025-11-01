@@ -69,6 +69,42 @@ def run_experiment_set(base_cmd_args, attack_type):
             execute_command(attack_cmd_args)
 
 # --- Main Experiment Loops ---
+def calculate_total_experiments():
+    """
+    Calculates the total number of experiments that will be run
+    based on the lists defined at the top of the script.
+    """
+    # 1. Calculate the number of base combinations
+    base_combinations = (
+        len(datasets) *
+        len(bias_values) *
+        len(models) *
+        len(defences)
+    )
+    
+    # 2. Calculate the number of runs for the inner loops
+    #    (attacks, grouping, and nbyz)
+    inner_loop_runs = 0
+    for attack in attack_types:
+        for toGroup in isGrouped_list:
+            if toGroup:
+                # Grouped experiments
+                if attack == "no":
+                    inner_loop_runs += len(group_size_list)
+                else:
+                    inner_loop_runs += len(group_size_list) * len(nbyz_list)
+            else:
+                # Non-grouped experiments
+                if attack == "no":
+                    inner_loop_runs += 1
+                else:
+                    inner_loop_runs += len(nbyz_list)
+                    
+    total = base_combinations * inner_loop_runs
+    return total
+
+total_experiments = calculate_total_experiments()
+print(f"Total number of experiments to run: {total_experiments}")
 
 for dataset in datasets:
     for bias in bias_values:
