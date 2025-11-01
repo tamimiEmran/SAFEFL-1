@@ -1342,66 +1342,16 @@ def fedavg(gradients, net, lr, f, byz, device, data_sizes, group_size = 0):
 
     if group_size > 0:
         _, param_list = groupParams(param_list, group_size)
-    #the first time this functin is called set a round_id to 1. Then every time this function is called increment the round_id by 1.
-    if "round_id" not in fedavg.__dict__:
-        fedavg.round_id = 1
-    else:
-        fedavg.round_id += 1
+
 
     n = len(param_list)
-    byz_type = byz.__name__ if byz else "None"
-    """
-    columns = [
-        # Experiment-level data
-        "round_id",
-        "byz_type",
-        "n_total_clients",
-        "n_total_mal",
-        "group_size",
-        "grouping_agg",
-        
-        # Client-level metadata
-        "client_id",
-        "is_user_malicious",
-        
-        # Group-level metadata
-        "group_id",
-        "n_total_groups",
-        "group_id_size",
-        "group_id_mal_size",
-        
-        # Score-level data
-        "scoring_func",
-        "score"
-    ]
 
-    fixed_vis_data_for_this_round = {
-        "round_id": fedavg.round_id,
-        "byz_type": byz_type,
-        "n_total_clients": n,
-        "n_total_mal": f
-    }
-
-    records = round_full_scores(gradients= gradients, 
-                                fixed_vis_data_for_this_round= fixed_vis_data_for_this_round)
-    
-    # Save the records to a csv file and add if its already exists
-    df = pd.DataFrame(records, columns=columns)
-    csv_file = r"score_function_viz\HAR_final_fixed_f.csv"
-
-    if not os.path.exists(csv_file):
-        df.to_csv(csv_file, index=False)
-    else:
-        df.to_csv(csv_file, mode='a', header=False, index=False)
-    """
-    n = len(param_list)
-    total_data_size = sum(data_sizes)
 
     # compute global model update
     global_update = torch.zeros(param_list[0].size()).to(device)
     for i, grad in enumerate(param_list):
-        global_update += grad * data_sizes[i]
-    global_update /= total_data_size
+        global_update += grad 
+    global_update /= n
 
     # update the global model
     idx = 0
