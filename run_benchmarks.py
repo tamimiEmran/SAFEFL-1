@@ -10,9 +10,7 @@ import shlex
 # customize these lists as needed
 #datasets = ["FEMNIST", 'MNIST', 'CIFAR10']
 datasets = ['FEMNIST','MNIST'] # for debugging purposes, only run MNIST
-datasets = ['MNIST']
 bias_values = [0, 0.5] # for debugging purposes, only run 0
-bias_values = [0]
 #models = ["resnet18", "mobilenet_v3_small", "vit_base"] # Only keep resnet18
 models = ["resnet18"]
 attack_types = ["no", "scaling_attack", "label_flipping_attack"]
@@ -20,16 +18,14 @@ attack_types = ["no", "scaling_attack", "label_flipping_attack"]
 defences = ['fedavg', 'krum', 'shieldfl', 'signguard']
 isGrouped_list = [True, False]
 group_size_list = [10, 20] # for debugging purposes, only run 10
-group_size_list = [2]
 nbyz_list = [25, 50] # for debugging purposes, only run 2
-nbyz_list = [5]
 
 base_args = [
-    "--nworkers", "50",
-    "--batch_size", "32",
-    "--niter", "2", #2500
+    "--nworkers", "500",
+    "--batch_size", "128",
+    "--niter", "2500", #2500
     "--lr", "0.05",
-    "--test_every", "1", #10
+    "--test_every", "10", #10
     "--gpu", "1",
 ]
 
