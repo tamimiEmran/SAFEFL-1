@@ -22,7 +22,7 @@ nbyz_list = [25, 50]
 
 base_args = [
     "--nworkers", "200",
-    "--batch_size", "128",
+    "--batch_size", "256",
     "--niter", "2500", #2500
     "--lr", "0.05",
     "--test_every", "10", #10
