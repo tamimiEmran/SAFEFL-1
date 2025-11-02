@@ -15,14 +15,14 @@ bias_values = [0, 0.5] # for debugging purposes, only run 0
 models = ["resnet18"]
 attack_types = ["no", "scaling_attack", "label_flipping_attack"]
 #full_list_defences = ["fedavg", "krum", "trim_mean", "median", "flame", "shieldfl", "divide_and_conquer", "signguard", "flare", "romoa"] # Keep only 
-defences = ['fedavg', 'krum', 'shieldfl', 'signguard']
+defences = ['fedavg', 'krum', 'shieldfl', 'signguard', 'FactorGraphs']
 isGrouped_list = [True, False]
-group_size_list = [10, 20] # for debugging purposes, only run 10
-nbyz_list = [25, 50] # for debugging purposes, only run 2
+group_size_list = [10, 20] 
+nbyz_list = [25, 50] 
 
 base_args = [
-    "--nworkers", "500",
-    "--batch_size", "64",
+    "--nworkers", "200",
+    "--batch_size", "128",
     "--niter", "2500", #2500
     "--lr", "0.05",
     "--test_every", "10", #10
