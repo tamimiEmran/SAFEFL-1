@@ -74,33 +74,47 @@ def calculate_total_experiments():
     """
     Calculates the total number of experiments that will be run
     based on the lists defined at the top of the script.
+    
+    *** NOTE: This function has been updated to account for the
+    special 'fedavg' logic. ***
     """
     # 1. Calculate the number of base combinations
+    #    (Note: 'defences' loop is now handled *inside* the inner runs)
     base_combinations = (
         len(datasets) *
         len(bias_values) *
-        len(models) *
-        len(defences)
+        len(models)
     )
     
     # 2. Calculate the number of runs for the inner loops
-    #    (attacks, grouping, and nbyz)
+    #    (attacks, defences, grouping, and nbyz)
     inner_loop_runs = 0
     for attack in attack_types:
-        for toGroup in isGrouped_list:
-            if toGroup:
-                # Grouped experiments
-                if attack == "no":
-                    inner_loop_runs += len(group_size_list)
-                else:
-                    inner_loop_runs += len(group_size_list) * len(nbyz_list)
-            else:
-                # Non-grouped experiments
+        for defence in defences:
+            if defence == 'fedavg':
+                # --- FedAvg Special Case ---
+                # Runs once (as non-grouped)
                 if attack == "no":
                     inner_loop_runs += 1
                 else:
-                    inner_loop_runs += len(nbyz_list)
-                    
+                    inner_loop_runs += len(nbyz_list) # Runs for each nbyz
+            else:
+                # --- All Other Defences ---
+                # Runs for both grouped and non-grouped
+                for toGroup in isGrouped_list:
+                    if toGroup:
+                        # Grouped experiments
+                        if attack == "no":
+                            inner_loop_runs += len(group_size_list)
+                        else:
+                            inner_loop_runs += len(group_size_list) * len(nbyz_list)
+                    else:
+                        # Non-grouped experiments
+                        if attack == "no":
+                            inner_loop_runs += 1
+                        else:
+                            inner_loop_runs += len(nbyz_list)
+                            
     total = base_combinations * inner_loop_runs
     return total
 
@@ -112,30 +126,50 @@ for dataset in datasets:
         for model in models:
             for attack_type in attack_types:
                 for defence in defences:
-                    for toGroup in isGrouped_list:
-                        
-                        # Build the common arguments for this run
-                        current_run_args = [
+                    
+                    # --- LOGIC FIX ---
+                    # The 'fedavg' special case is now handled here.
+                    # We build its args and run it, OR
+                    # we proceed to the grouping logic for all other defenses.
+                    
+                    if defence == 'fedavg':
+                        # --- FedAvg Special Case ---
+                        # Build args for a *single* non-grouped run
+                        fedavg_args = [
                             "--dataset", dataset,
                             "--bias", str(bias),
                             "--net", model,
                             "--byz_type", attack_type,
                             "--aggregation", defence,
-                            "--isGrouped", str(toGroup)
+                            "--isGrouped", "False" # Hardcode as False
                         ]
-                        
+                        run_experiment_set(fedavg_args, attack_type)
+                    else:
+                        # --- All Other Defences ---
+                        # Loop through grouped and non-grouped
+                        for toGroup in isGrouped_list:
+                            
+                            # Build the common arguments for this run
+                            current_run_args = [
+                                "--dataset", dataset,
+                                "--bias", str(bias),
+                                "--net", model,
+                                "--byz_type", attack_type,
+                                "--aggregation", defence,
+                                "--isGrouped", str(toGroup)
+                            ]
 
-                        if toGroup:
-                            # --- Grouped Experiments ---
-                            for g_size in group_size_list:
-                                # Add the group_size argument
-                                grouped_args = current_run_args + ["--group_size", str(g_size)]
+                            if toGroup:
+                                # --- Grouped Experiments ---
+                                for g_size in group_size_list:
+                                    # Add the group_size argument
+                                    grouped_args = current_run_args + ["--group_size", str(g_size)]
+                                    # Run the set of experiments (handles 'no' vs. 'attack' logic)
+                                    run_experiment_set(grouped_args, attack_type)
+                            else:
+                                # --- Non-Grouped Experiments ---
+                                # No --group_size argument is added
                                 # Run the set of experiments (handles 'no' vs. 'attack' logic)
-                                run_experiment_set(grouped_args, attack_type)
-                        else:
-                            # --- Non-Grouped Experiments ---
-                            # No --group_size argument is added
-                            # Run the set of experiments (handles 'no' vs. 'attack' logic)
-                            run_experiment_set(current_run_args, attack_type)
+                                run_experiment_set(current_run_args, attack_type)
 
 print("--- Benchmark Sweep Complete ---")
