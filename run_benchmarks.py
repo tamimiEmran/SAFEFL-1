@@ -11,7 +11,7 @@ import shlex
 datasets = ['MNIST', 'FEMNIST'] # for debugging purposes, only run MNIST
 bias_values = [0,0.25, 0.5] # for debugging purposes, only run 0
 models = ["mobilenet_v3_small", "eff_net"]
-attack_types = ["no", "scaling_attack", "label_flipping_attack"]
+attack_types = ["no"] #, "scaling_attack", "label_flipping_attack"
 defences = ['fedavg', 'krum', 'shieldfl', 'signguard']
 isGrouped_list = [True, False]
 group_size_list = [25, 50] 
@@ -25,7 +25,7 @@ base_args = [
     "--test_every", "30", #10
     "--gpu", "1",
 ]
-
+print("THIS IS FOR THE FIRST POD NAME 'ATTACK TYPE' 'NO'")
 def execute_command(cmd_list):
     """
     Helper function to build, print, and run a single experiment command.
