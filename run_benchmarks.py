@@ -14,11 +14,11 @@ models = ["mobilenet_v3_small", "eff_net"][::-1]
 attack_types = ["no"] #, "scaling_attack", "label_flipping_attack"
 defences = ['fedavg', 'krum', 'shieldfl', 'signguard']
 isGrouped_list = [True, False]
-group_size_list = [15, 30] 
-nbyz_list = [30] 
+group_size_list = [5, 10] 
+nbyz_list = [10] 
 
 base_args = [
-    "--nworkers", "300",
+    "--nworkers", "100",
     "--batch_size", "256",
     "--niter", "3000", #2500
     "--lr", "0.05",
