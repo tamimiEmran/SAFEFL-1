@@ -8,13 +8,10 @@ import shlex
 # --- Corrected and Refactored Benchmark Script ---
 
 # customize these lists as needed
-#datasets = ["FEMNIST", 'MNIST', 'CIFAR10']
 datasets = ['MNIST', 'FEMNIST'] # for debugging purposes, only run MNIST
 bias_values = [0,0.25, 0.5] # for debugging purposes, only run 0
-#models = ["resnet18", "mobilenet_v3_small", "vit_base"] # Only keep resnet18
 models = ["mobilenet_v3_small", "eff_net"]
 attack_types = ["no", "scaling_attack", "label_flipping_attack"]
-#full_list_defences = ["fedavg", "krum", "trim_mean", "median", "flame", "shieldfl", "divide_and_conquer", "signguard", "flare", "romoa"] # Keep only 
 defences = ['fedavg', 'krum', 'shieldfl', 'signguard']
 isGrouped_list = [True, False]
 group_size_list = [25, 50] 
