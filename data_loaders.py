@@ -9,7 +9,7 @@ import torch
 import torchvision
 import torch.utils.data
 
-to_pin_memory = True
+to_pin_memory = False
 def get_shapes(dataset):
     """
     Get the input and output shapes of the data examples for each dataset used.
