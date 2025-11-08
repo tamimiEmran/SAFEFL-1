@@ -9,7 +9,7 @@ import torch
 import torchvision
 import torch.utils.data
 
-
+to_pin_memory = True
 def get_shapes(dataset):
     """
     Get the input and output shapes of the data examples for each dataset used.
@@ -126,8 +126,8 @@ def load_data(dataset, seed):
         train_dataset = torch.utils.data.TensorDataset(tensor_train_X, tensor_train_y)
         test_dataset = torch.utils.data.TensorDataset(tensor_test_X, tensor_test_y)
 
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=False)
-        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False)
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=False, pin_memory=to_pin_memory)
+        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False, pin_memory=to_pin_memory)
 
 
     elif dataset == 'MNIST':
@@ -157,7 +157,8 @@ def load_data(dataset, seed):
             batch_size=100, 
             shuffle=True,
             worker_init_fn=seed_worker,
-            generator=g
+            generator=g,
+            pin_memory=to_pin_memory
         )
         
         test_loader = torch.utils.data.DataLoader(
@@ -165,7 +166,8 @@ def load_data(dataset, seed):
             batch_size=100, 
             shuffle=False,
             worker_init_fn=seed_worker,
-            generator=g
+            generator=g,
+            pin_memory=to_pin_memory
         )
         
     elif dataset == 'CIFAR10':
@@ -188,10 +190,10 @@ def load_data(dataset, seed):
             root='./data', train=False, download=True, transform=transform_test
         )
         train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=128, shuffle=True, worker_init_fn=seed_worker, generator=g
+            train_dataset, batch_size=128, shuffle=True, worker_init_fn=seed_worker, generator=g, pin_memory=to_pin_memory
         )
         test_loader = torch.utils.data.DataLoader(
-            test_dataset, batch_size=128, shuffle=False, worker_init_fn=seed_worker, generator=g
+            test_dataset, batch_size=128, shuffle=False, worker_init_fn=seed_worker, generator=g, pin_memory=to_pin_memory
         )
 
     elif dataset == 'CIFAR100':
@@ -214,10 +216,10 @@ def load_data(dataset, seed):
             root='./data', train=False, download=True, transform=transform_test
         )
         train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=128, shuffle=True, worker_init_fn=seed_worker, generator=g
+            train_dataset, batch_size=128, shuffle=True, worker_init_fn=seed_worker, generator=g, pin_memory=to_pin_memory
         )
         test_loader = torch.utils.data.DataLoader(
-            test_dataset, batch_size=128, shuffle=False, worker_init_fn=seed_worker, generator=g
+            test_dataset, batch_size=128, shuffle=False, worker_init_fn=seed_worker, generator=g, pin_memory=to_pin_memory
         )
 
     elif dataset == 'FEMNIST':
@@ -241,11 +243,11 @@ def load_data(dataset, seed):
 
         train_loader = torch.utils.data.DataLoader(
             train_dataset, batch_size=128, shuffle=True,
-            worker_init_fn=seed_worker, generator=g
+            worker_init_fn=seed_worker, generator=g, pin_memory=to_pin_memory
         )
         test_loader = torch.utils.data.DataLoader(
             test_dataset, batch_size=128, shuffle=False,
-            worker_init_fn=seed_worker, generator=g
+            worker_init_fn=seed_worker, generator=g, pin_memory=to_pin_memory
         )
 
     else:
