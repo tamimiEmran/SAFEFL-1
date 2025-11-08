@@ -1,6 +1,9 @@
 import subprocess
 import sys
 import shlex
+# femnist fedavg no bias, no att. 
+# [0.1582, 0.3840, 0.4906, 0.5742, 0.6357, 0.6336, 0.7013, 0.7385, 0.7653, 0.7712, 0.7705, 0.7885, 0.7990, 0.7899, 0.8107, 0.8107, 0.8252, 0.8091, 0.8220, 0.8384, 0.8366, 0.8348, 0.8417, 0.8337, 0.8363, 0.8453, 0.8442, 0.8425, 0.8339, 0.8491, 0.8494, 0.8520, 0.8542, 0.8556, 0.8483, 0.8447, 0.8549, 0.8535, 0.8551, 0.8569, 0.8559, 0.8580, 0.8517, 0.8163, 0.8484, 0.8537, 0.8578, 0.8588, 0.8579, 0.8626, 0.8585, 0.8612, 0.8597, 0.8642]
+#Running: /workspace/.venv_torch/bin/python main.py --nworkers 100 --batch_size 256 --niter 3000 --lr 0.05 --test_every 30 --gpu 1 --dataset FEMNIST --bias 0 --net eff_net --byz_type no --aggregation fedavg --isGrouped False
 
 #!/usr/bin-env python3
 # /m:/PythonTests/newSafeFL/SAFEFL/run_benchmarks.py
