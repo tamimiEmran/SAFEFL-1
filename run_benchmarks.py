@@ -10,7 +10,7 @@ import shlex
 # customize these lists as needed
 datasets = ['FEMNIST','MNIST'] # for debugging purposes, only run MNIST
 bias_values = [0,0.25, 0.5] # for debugging purposes, only run 0
-models = ["mobilenet_v3_small", "eff_net"]
+models = ["mobilenet_v3_small", "eff_net"][::-1]
 attack_types = ["no"] #, "scaling_attack", "label_flipping_attack"
 defences = ['fedavg', 'krum', 'shieldfl', 'signguard']
 isGrouped_list = [True, False]
