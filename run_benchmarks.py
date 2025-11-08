@@ -17,12 +17,22 @@ isGrouped_list = [True, False]
 group_size_list = [5, 10] 
 nbyz_list = [10] 
 
+# prompt the user to enter the models list, attack types list and the defences list
+#explain to the user how to enter the list as a string separated by commas. Then give the options for the models, attack types and defences.
+print("Enter the models list as a string separated by commas. The options are: mobilenet_v3_small, eff_net")
+print("Enter the attack types list as a string separated by commas. The options are: label_flipping_attack, scaling_attack")
+print("Enter the defences list as a string separated by commas. The options are: fedavg, krum, shieldfl, signguard")    
+models = input("Enter the models list: ").split(",")
+attack_types = input("Enter the attack types list: ").split(",")
+defences = input("Enter the defences list: ").split(",")
+
+
 base_args = [
     "--nworkers", "100",
-    "--batch_size", "256",
-    "--niter", "3000", #2500
-    "--lr", "0.05",
-    "--test_every", "30", #10
+    "--batch_size", "128",
+    "--niter", "1000", #2500
+    "--lr", "0.1",
+    "--test_every", "10", #10
     "--gpu", "1",
 ]
 print("THIS IS FOR THE third POD NAME 'ATTACK TYPE' 'label_flipping_attack'")
