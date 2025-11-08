@@ -8,7 +8,7 @@ import shlex
 # --- Corrected and Refactored Benchmark Script ---
 
 # customize these lists as needed
-datasets = ['MNIST', 'FEMNIST'] # for debugging purposes, only run MNIST
+datasets = ['FEMNIST','MNIST'] # for debugging purposes, only run MNIST
 bias_values = [0,0.25, 0.5] # for debugging purposes, only run 0
 models = ["mobilenet_v3_small", "eff_net"]
 attack_types = ["no"] #, "scaling_attack", "label_flipping_attack"
