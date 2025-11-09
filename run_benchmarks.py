@@ -17,13 +17,13 @@ models = ["mobilenet_v3_small", "eff_net"][::-1]
 attack_types = ["label_flipping_attack"] #, "scaling_attack", "label_flipping_attack"
 defences = ['fedavg', 'krum', 'shieldfl', 'signguard']
 isGrouped_list = [True, False]
-group_size_list = [5, 10] 
-nbyz_list = [10] 
+group_size_list = [5, 10]
+nbyz_list = [0, 10]
 
 # prompt the user to enter the models list, attack types list and the defences list
 #explain to the user how to enter the list as a string separated by commas. Then give the options for the models, attack types and defences.
 print("Enter the models list as a string separated by commas. The options are: mobilenet_v3_small, eff_net")
-print("Enter the attack types list as a string separated by commas. The options are: label_flipping_attack, scaling_attack")
+print("Enter the attack types list as a string separated by commas. The options are: no, label_flipping_attack, scaling_attack")
 print("Enter the defences list as a string separated by commas. The options are: fedavg, krum, shieldfl, signguard")    
 models = input("Enter the models list: ").split(",")
 attack_types = input("Enter the attack types list: ").split(",")
