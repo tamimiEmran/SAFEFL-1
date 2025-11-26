@@ -225,7 +225,7 @@ def load_data(dataset, seed):
     elif dataset == 'FEMNIST':
         
         from datasets import load_dataset  # pip install datasets
-        ds = load_dataset('flwrlabs/femnist')
+        ds = load_dataset('flwrlabs/femnist', cache_dir='./data')
 
         def _to_tensor_split_flat(split):
             imgs = np.stack([np.array(x, dtype=np.uint8) for x in split["image"]], axis=0)  # (N, 28, 28)
