@@ -1,7 +1,7 @@
 import torch
 from sklearn.mixture import GaussianMixture
 import numpy as np
-
+from functools import reduce
 import torch
 import numpy as np
 from sklearn.mixture import GaussianMixture
@@ -218,3 +218,94 @@ def likelihood_function(observed_score, expectation):
     """
     # Example logic: return a dummy likelihood value
     return np.exp(-abs(observed_score - expectation))  # Replace with actual logic if needed
+
+
+
+def signguard_individual(param_list, device= 'cpu', seed= 47, group_size = 0):
+    
+    n = len(param_list)
+
+    num_params = param_list[0].size(0)
+    selection_fraction = 0.1
+
+    # lower and upper bound L,R for gradient norm
+    L = 0.1
+    R = 3.0
+    S1 = []
+    S2 = []
+
+    # compute l2-norm
+    l2_norm = torch.stack([torch.norm(g.flatten(), p=2.0) for g in param_list])
+
+    # compute element wise sign
+    num_selection = int(num_params * selection_fraction)
+    perm = torch.randperm(num_params)
+    idx = perm[:num_selection]
+    sign_grads = [torch.sign(g[idx]) for g in param_list]
+
+    # norm-threshold filtering
+    M = torch.median(l2_norm)
+    for i in range(n):
+        if L <= l2_norm[i] / M and l2_norm[i] / M <= R:
+            S1.append(i)
+
+    # compute sign statistics
+    sign_pos = torch.stack([grad.eq(1.0).float().mean() for grad in sign_grads])
+    sign_zero = torch.stack([grad.eq(0.0).float().mean() for grad in sign_grads])
+    sign_neg = torch.stack([grad.eq(-1.0).float().mean() for grad in sign_grads])
+
+    # sign-based clustering
+    sign_feat = torch.stack([sign_pos, sign_zero, sign_neg], dim=1).detach().cpu().numpy()
+    cluster = KMeans(n_clusters=2, max_iter=20, random_state=seed)
+    labels = cluster.fit_predict(sign_feat)
+
+    labels_tensor = torch.from_numpy(labels).to(device)
+    count = torch.bincount(labels_tensor)
+    largest_cluster = torch.argmax(count)
+
+    for i, value in enumerate(labels_tensor):
+        if value == largest_cluster:
+            S2.append(i)
+
+    # compute intersection of S1 and S2
+    S = [i for i in S1 if i in S2]
+
+    
+    #return a list of benign users. 
+    return [i in S for i in range(n)]
+
+
+def DNC_individual(param_list, c = 1, b = 2000, device = 'cpu'):
+    """
+    The divide and conquer aggregation rule defined in https://www.ndss-symposium.org/wp-content/uploads/ndss2021_6C-3_24498_paper.pdf
+    gradients: list of gradients.
+    """
+    param_list = [tensor.to(device) for tensor in param_list]
+    
+    # let the malicious clients (first f clients) perform the byzantine attack
+
+
+    n = len(param_list)
+    good_set = list()
+
+    for i in range(5):
+        random_dimension = np.random.randint(1, high=b, dtype=int)
+        r_mask = torch.tensor([True if i < random_dimension else False for i in range(len(param_list[0]))]).to(device)
+        r_mask = r_mask[torch.randperm(len(param_list[0]))].to(device)[:, None]  # craft random selection of random number of parameters
+        selected_gradients = [torch.masked_select(param_list[i], r_mask)[:, None] for i in range(len(param_list))]
+        mean = torch.mean(torch.cat(selected_gradients, dim=-1), dim=-1)[:, None]
+        selected_gradients = torch.sub(torch.cat(selected_gradients, dim=-1), mean).T  # center gradients and
+        # transpose to match dimension to their implementation
+
+        _, _, rightSingular = torch.linalg.svd(selected_gradients, full_matrices=False)  # compute top right singular eigenvector
+        topeigen = rightSingular[0, :]  # rows of v are ordered right singular vectors
+        outlier_score = [torch.dot(selected_gradients[i], topeigen).item()**2 for i in range(len(param_list))]
+        # this is my assumption because their algorithm would compute the dot product of full gradient with topeigen
+        # which would have different dimensions and therefore can not be computed
+        sorted_indices = np.argsort(outlier_score)[0:int(len(param_list)-5*c)]  # this assumes that the aggregation knows
+        # the actual number of malicious clients
+        good_set.append(sorted_indices)
+
+    good_indices = reduce(np.intersect1d, good_set)
+    
+    return [i in good_indices for i in range(n)]

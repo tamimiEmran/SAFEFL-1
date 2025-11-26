@@ -14,6 +14,8 @@ import copy
 import utils
 import heirichalFL as hfl
 from scipy.stats import norm
+from sklearn.decomposition import PCA
+from bayesian.components import signguard_individual, DNC_individual
 # Copyright (c) 2015, Leland McInnes
 # All rights reserved.
 # Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -27,7 +29,28 @@ import numpy as np
 from functools import reduce
 from bayesian.grouping import initialize_grouping_params, _group_and_sum_gradients, _SG_group_and_sum_gradients
 import random
-# set seed 
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+# set seed
+def visualize_gradients(param_list, f = 5):
+
+    tensor_data = torch.stack(param_list) 
+    if tensor_data.dim() == 3:
+        tensor_data = tensor_data.squeeze(-1)
+    
+    X_numpy = tensor_data.cpu().detach().numpy()
+
+    n_samples = X_numpy.shape[0]
+    
+    tsne = TSNE(n_components=2, init='pca', random_state=50, metric='cosine')
+    
+    X_tsne = tsne.fit_transform(X_numpy)
+    
+    plt.figure(figsize=(8, 6))
+    #make the first 5 points red, the rest blue
+    plt.scatter(X_tsne[:, 0], X_tsne[:, 1], c=['red' if i < 5 else 'blue' for i in range(n_samples)])
+    plt.title("Gradient Visualization")
+    plt.show()
 random.seed(42)
 np.random.seed(42)
 torch.manual_seed(42)
@@ -72,6 +95,9 @@ def groupParams(param_list, group_size, isFactorGraph = False):
         return groups, group_gradients
     else:
         return groups, [group_gradients[gid] for gid in group_gradients.keys()]
+
+from pyds import MassFunction
+import torch
 
 
 def divide_and_conquer_bb_probs(gradients, net, lr, f, byz, device,
@@ -790,8 +816,11 @@ def signguard(gradients, net, lr, f, byz, device, seed, group_size = 0):
     device: computation device.
     seed: seed for randomness
     """
+
+    
     param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
     #print the shapes of the gradients
+
 
     # let the malicious clients (first f clients) perform the byzantine attack
     if byz == attacks.fltrust_attack:
@@ -847,6 +876,7 @@ def signguard(gradients, net, lr, f, byz, device, seed, group_size = 0):
 
     # compute intersection of S1 and S2
     S = [i for i in S1 if i in S2]
+    #print(f"Number of honest clients: {len(S)}")
 
     # global update
     global_update = torch.zeros(param_list[0].size()).to(device)
@@ -1099,6 +1129,156 @@ def romoa(gradients, net, lr, f, byz, device, F, prev_global_update, seed, group
         idx += torch.numel(param)
 
     return F_t, global_update
+
+from sklearn.mixture import GaussianMixture
+
+def _get_features(param_list, device = 'cpu', cluster_features = 'sign'):
+    """
+    Extracts low-dimensional sign features from high-dimensional gradients.
+    
+    This is inspired by SignGuard, but returns the raw features for clustering.
+    
+    Returns:
+        torch.Tensor: A (n_clients, 3) tensor where columns are
+                      (proportion_positive, proportion_zero, proportion_negative)
+    """
+    if cluster_features == 'sign':
+        n = len(param_list)
+        num_params = param_list[0].size(0)
+        
+        # We use a significant random sample of coordinates to get a stable estimate
+        # of the sign distribution, without using all parameters.
+        selection_fraction = 1
+        num_selection = int(num_params * selection_fraction)
+        
+        # Use a fixed permutation for reproducibility across calls if needed,
+        # but for GMM, a random one each time is also fine.
+        idx = torch.randperm(num_params, device=device)[:num_selection]
+        
+        sign_features = torch.zeros((n, 3), device=device, dtype=torch.float32)
+        
+        # Get sign features for all clients
+        stacked_signs = torch.stack([torch.sign(g[idx]) for g in param_list])
+        
+        sign_features[:, 0] = stacked_signs.eq(1.0).float().mean(dim=1).view(-1)  # Positive
+        sign_features[:, 1] = stacked_signs.eq(0.0).float().mean(dim=1).view(-1)  # Zero
+        sign_features[:, 2] = stacked_signs.eq(-1.0).float().mean(dim=1).view(-1) # Negative
+        
+        return sign_features
+    
+    elif cluster_features == 'PCA':
+
+        data_np = torch.stack([t.detach().cpu().view(-1) for t in param_list]).numpy()
+        pca = PCA(n_components=0.95)
+        reduced_data = pca.fit_transform(data_np)
+        return torch.from_numpy(reduced_data).float().to(device)
+    else:
+        raise ValueError(f"Invalid cluster_features: {cluster_features}")
+
+from collections import defaultdict
+def bayesian_gmm_cluster(gradients, net, lr, f, byz, device, gmm_state=None,
+                         # --- GMM Hyperparameters ---
+                         n_components=10,  # 2 clusters: benign and malicious
+                         warm_start=True, # Use previous round's results to initialize
+                         n_init=1,        # Only 1 init if warm-starting
+                         
+                        ):
+    """
+    Aggregation rule using a Gaussian Mixture Model (GMM) to cluster clients.
+    
+    This function treats the aggregation problem as a clustering problem.
+    It assumes clients are drawn from two clusters (benign, malicious) and uses
+    an EM algorithm (via GMM) to find the probability that each client
+    belongs to the malicious cluster.
+
+    Args:
+        gradients: list of gradients.
+        net: model parameters.
+        lr: learning rate.
+        f: number of malicious clients. (Used as a hint to find the malicious cluster)
+        byz: attack type.
+        device: computation device.
+        gmm_state (GaussianMixture or None): The fitted GMM object from the
+            previous round. Used for warm-starting the EM algorithm.
+    
+    Returns:
+        GaussianMixture: The updated, fitted GMM object for the next round.
+    """
+    
+    # 1. Flatten gradients and apply attack
+    param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
+    if byz == attacks.fltrust_attack:
+        param_list = byz(param_list, net, lr, f, device)[:-1]
+    else:
+        param_list = byz(param_list, net, lr, f, device)
+    
+    n = len(param_list)
+    to_include = np.array([False] * n)
+    # 2. Extract robust, low-dimensional features for clustering
+    # We cluster on sign features, not raw gradients, to avoid the
+    # curse of dimensionality.
+    sign_features = _get_features(param_list, device, cluster_features = 'PCA')
+    sign_features_np = sign_features.cpu().numpy()
+
+
+
+    # 3. Initialize and fit the GMM
+    if gmm_state is None or not warm_start:
+        # First round, or no warm-starting: fit from scratch
+        gmm = GaussianMixture(n_components=n_components,
+                              n_init=5,  # More inits for a cold start
+                              covariance_type='full',
+                              random_state=42)
+    else:
+        # Use previous round's GMM to initialize this round's fit
+        gmm = gmm_state
+        # Ensure n_init=1 when warm-starting
+        gmm.n_init = n_init
+        gmm.warm_start = True
+
+    # Fit the model to the new data
+    gmm.fit(sign_features_np)
+
+    # 4. Get posterior probabilities and identify malicious cluster
+    # posterior_probs is (n_clients, n_classes)
+    posterior_probs = gmm.predict_proba(sign_features_np)
+    classes_idx =  defaultdict(list)
+    for i in range(n):
+        idx = np.argmax(posterior_probs[i])
+        classes_idx[idx].append(i)
+
+    # run signguard on each class
+    for class_idx in classes_idx:
+        class_indices = classes_idx[class_idx]
+        class_gradients = [param_list[i] for i in class_indices]
+        is_benign = DNC_individual(class_gradients) if len(class_indices) > 2 else [False] * len(class_indices)
+        #print(f"Class {class_idx} has {sum(is_benign)} benign users out of {len(is_benign)} users")
+        #print(is_benign)
+        to_include[classes_idx[class_idx]] = is_benign
+
+
+    
+
+    # 5. Compute weighted aggregate
+    global_update = torch.zeros_like(param_list[0])
+    
+    for i in range(n):
+        if to_include[i]:
+            global_update += param_list[i]
+    
+    if sum(to_include) > 1e-9:
+        global_update /= sum(to_include)
+    else:
+        global_update.zero_()
+
+    # 6. Update the global model
+    idx = 0
+    for j, param in enumerate(net.parameters()):
+        param.add_(global_update[idx:(idx + torch.numel(param))].reshape(tuple(param.size())), alpha=-lr)
+        idx += torch.numel(param)
+
+    # 7. Return the fitted GMM for the next round
+    return gmm
 
 
 from pgmax import fgraph, infer 

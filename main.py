@@ -811,6 +811,12 @@ def main(args):
 
                 elif args.aggregation == "factorGraphs":
                     factorGraph_params = aggregation_rules.factorGraphs(grad_list, net, args.lr, args.nbyz, byz, device, factorGraph_params)
+                elif args.aggregation == "bayesian_gmm_cluster":
+                    if run == 1:
+                        gmm_state = None
+                    else:
+                        gmm_state = gmm_state
+                    gmm_state = aggregation_rules.bayesian_gmm_cluster(grad_list, net, args.lr, args.nbyz, byz, device, gmm_state)
                 else:
                     raise NotImplementedError
 

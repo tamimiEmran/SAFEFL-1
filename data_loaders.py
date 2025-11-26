@@ -731,8 +731,8 @@ def plot_iidness(each_worker_label, dataset="CIFAR10", figsize=(10, 6),
         f'Mean entropy: {mean_ent:.4f}'
     )
     # Position text relative to the axes
-    ax.text(0.0, -0.15, summary, fontsize=10, transform=ax.transAxes,
-            bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8))
+    #ax.text(0.0, -0.15, summary, fontsize=10, transform=ax.transAxes,
+            #bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8))
 
     if _create_fig:
         plt.tight_layout()
