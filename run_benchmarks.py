@@ -46,6 +46,11 @@ def execute_command(cmd_list):
     Includes try/except for error handling.
     """
     # Build the final command
+    if cmd_list[0] == "--dataset" and cmd_list[1] == "FEMNIST":
+        base_args = femnist_base_args
+    elif cmd_list[0] == "--dataset" and cmd_list[1] == "MNIST":
+        base_args = mnist_base_args
+
     cmd = [sys.executable, "main.py"] + base_args + cmd_list
     
     # Use shlex.join for safe and readable printing
