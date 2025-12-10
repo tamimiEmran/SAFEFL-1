@@ -14,14 +14,14 @@ import shlex
 datasets = ['FEMNIST','MNIST'] # for debugging purposes, only run MNIST
 bias_values = [0,0.25, 0.5] # for debugging purposes, only run 0
 models = ["resnet18", "mobilenet_v3_small"]
-attack_types = ['no', 'scaling_attack', "label_flipping_attack"] #, "scaling_attack", "label_flipping_attack"
-defences = ['fedavg', 'krum', 'shieldfl', 'signguard', 'factorGraphs']
+attack_types = ['no', 'scaling_attack', "label_flipping_attack"][::-1] #, "scaling_attack", "label_flipping_attack"
+defences = ['fedavg', 'krum', 'shieldfl', 'signguard', 'factorGraphs'][::-1][1:]
 isGrouped_list = [True, False]
 group_size_list = [10, 20]
 nbyz_list = [10, 20]
 
-defence = input("Enter a single defence to use: [fedavg, krum, shieldfl, signguard, factorGraphs]")
-defences = [defence]
+#defence = input("Enter a single defence to use: [fedavg, krum, shieldfl, signguard, factorGraphs]")
+#defences = [defence]
 
 femnist_base_args = [
     "--nworkers", "200",
