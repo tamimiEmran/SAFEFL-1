@@ -14,12 +14,14 @@ import shlex
 datasets = ['FEMNIST','MNIST'] # for debugging purposes, only run MNIST
 bias_values = [0,0.25, 0.5] # for debugging purposes, only run 0
 models = ["resnet18", "mobilenet_v3_small"]
-attack_types = ['no', 'scaling_attack',"label_flipping_attack"] #, "scaling_attack", "label_flipping_attack"
-defences = ['fedavg', 'krum', 'shieldfl', 'signguard']
+attack_types = ['no', 'scaling_attack', "label_flipping_attack"] #, "scaling_attack", "label_flipping_attack"
+defences = ['fedavg', 'krum', 'shieldfl', 'signguard', 'factorGraphs']
 isGrouped_list = [True, False]
-group_size_list = [5, 10]
-nbyz_list = [50, 25]
+group_size_list = [10, 20]
+nbyz_list = [10, 20]
 
+defence = input("Enter a single defence to use: [fedavg, krum, shieldfl, signguard, factorGraphs]")
+defences = [defence]
 
 femnist_base_args = [
     "--nworkers", "200",
@@ -144,15 +146,7 @@ for dataset in datasets:
         for model in models:
             for attack_type in attack_types:
                 for defence in defences:
-                    
-                    # --- LOGIC FIX ---
-                    # The 'fedavg' special case is now handled here.
-                    # We build its args and run it, OR
-                    # we proceed to the grouping logic for all other defenses.
-                    
                     if defence == 'fedavg':
-                        # --- FedAvg Special Case ---
-                        # Build args for a *single* non-grouped run
                         fedavg_args = [
                             "--dataset", dataset,
                             "--bias", str(bias),
@@ -163,11 +157,8 @@ for dataset in datasets:
                         ]
                         run_experiment_set(fedavg_args, attack_type)
                     else:
-                        # --- All Other Defences ---
-                        # Loop through grouped and non-grouped
                         for toGroup in isGrouped_list:
                             
-                            # Build the common arguments for this run
                             current_run_args = [
                                 "--dataset", dataset,
                                 "--bias", str(bias),
@@ -178,16 +169,10 @@ for dataset in datasets:
                             ]
 
                             if toGroup:
-                                # --- Grouped Experiments ---
                                 for g_size in group_size_list:
-                                    # Add the group_size argument
                                     grouped_args = current_run_args + ["--group_size", str(g_size)]
-                                    # Run the set of experiments (handles 'no' vs. 'attack' logic)
                                     run_experiment_set(grouped_args, attack_type)
                             else:
-                                # --- Non-Grouped Experiments ---
-                                # No --group_size argument is added
-                                # Run the set of experiments (handles 'no' vs. 'attack' logic)
                                 run_experiment_set(current_run_args, attack_type)
 
 print("--- Benchmark Sweep Complete ---")
