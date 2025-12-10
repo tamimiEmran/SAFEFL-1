@@ -41,8 +41,8 @@ mnist_base_args = [
 ]
 #prompt the user to enter the gpu id
 gpu_id = input("Enter the GPU ID to use: ")
-femnist_base_args.append("--gpu", gpu_id)
-mnist_base_args.append("--gpu", gpu_id)
+femnist_base_args.extend(["--gpu", gpu_id])
+mnist_base_args.extend(["--gpu", gpu_id])
 
 def execute_command(cmd_list):
     """
