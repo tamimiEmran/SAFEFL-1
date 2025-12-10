@@ -246,6 +246,8 @@ def get_device(device):
         print(f"Available GPUs: {gpu_count}")
         for i in range(gpu_count):
             print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+            # print current utilization of the gpu
+            print(f"GPU {i} utilization: {torch.cuda.memory_allocated(i) / 1024**2:.2f} MB / {torch.cuda.get_device_properties(i).total_memory / 1024**2:.2f} MB")
     else:
         print("No GPUs available")
     
