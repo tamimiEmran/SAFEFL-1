@@ -25,18 +25,18 @@ defences = [defence]
 
 femnist_base_args = [
     "--nworkers", "200",
-    "--batch_size", "16",
-    "--niter", "1500", #2500
+    "--batch_size", "32",
+    "--niter", "1000", #2500
     "--lr", "0.1",
-    "--test_every", "5", #10
+    "--test_every", "10", #10
     
 ]
 mnist_base_args = [
     "--nworkers", "200",
-    "--batch_size", "16",
+    "--batch_size", "32",
     "--niter", "500", #2500
     "--lr", "0.1",
-    "--test_every", "5", #10
+    "--test_every", "10", #10
     
 ]
 #prompt the user to enter the gpu id
