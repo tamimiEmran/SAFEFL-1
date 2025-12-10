@@ -13,12 +13,12 @@ import shlex
 # customize these lists as needed
 datasets = ['FEMNIST','MNIST'] # for debugging purposes, only run MNIST
 bias_values = [0,0.25, 0.5] # for debugging purposes, only run 0
-models = ["mobilenet_v3_small", "eff_net"][::-1]
+models = ["resnet18"]
 attack_types = ['no', 'scaling_attack',"label_flipping_attack"] #, "scaling_attack", "label_flipping_attack"
 defences = ['fedavg', 'krum', 'shieldfl', 'signguard']
 isGrouped_list = [True, False]
 group_size_list = [5, 10]
-nbyz_list = [0, 10]
+nbyz_list = [50, 25]
 
 # prompt the user to enter the models list, attack types list and the defences list
 #explain to the user how to enter the list as a string separated by commas. Then give the options for the models, attack types and defences.
@@ -26,18 +26,18 @@ nbyz_list = [0, 10]
 
 femnist_base_args = [
     "--nworkers", "500",
-    "--batch_size", "1024",
-    "--niter", "1000", #2500
+    "--batch_size", "64",
+    "--niter", "2500", #2500
     "--lr", "0.1",
-    "--test_every", "10", #10
+    "--test_every", "100", #10
     "--gpu", "1",
 ]
 mnist_base_args = [
     "--nworkers", "500",
-    "--batch_size", "256",
-    "--niter", "1000", #2500
+    "--batch_size", "64",
+    "--niter", "2500", #2500
     "--lr", "0.1",
-    "--test_every", "10", #10
+    "--test_every", "100", #10
     "--gpu", "1",
 ]
 def execute_command(cmd_list):

@@ -178,7 +178,7 @@ def parse_args():
     parser.add_argument("--nworkers", help="# workers", type=int, default=30)
     parser.add_argument("--batch_size", help="batch size", type=int, default=64)
     parser.add_argument("--lr", help="learning rate", type=float, default=0.25)
-    parser.add_argument("--gpu", help="no gpu = -1, gpu training otherwise", type=int, default=1)
+    parser.add_argument("--gpu", help="GPU ID to use (-1 for CPU, 0 for cuda:0, 1 for cuda:1, etc.)", type=int, default=0)
     parser.add_argument("--seed", help="seed", type=int, default=1)
     parser.add_argument("--nruns", help="number of runs for averaging accuracy", type=int, default=1)
     parser.add_argument("--test_every", help="testing interval", type=int, default=5)
@@ -238,9 +238,8 @@ def parse_args():
 def get_device(device):
     """
     Selects the device to run the training process on.
-    device: -1 to only use cpu, otherwise cuda if available
+    device: -1 to only use cpu, 0+ to use specific GPU (cuda:0, cuda:1, etc.)
     """
-    # check if gpu is available
     # check for available GPUs
     if torch.cuda.is_available():
         gpu_count = torch.cuda.device_count()
@@ -249,13 +248,21 @@ def get_device(device):
             print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
     else:
         print("No GPUs available")
+    
     if device == -1:
         ctx = torch.device('cpu')
+        print("Using device: CPU")
+    elif torch.cuda.is_available():
+        gpu_count = torch.cuda.device_count()
+        if device >= gpu_count:
+            print(f"Warning: GPU {device} not available. Using GPU 0 instead.")
+            raise ValueError(f"GPU {device} not available")
+        ctx = torch.device(f'cuda:{device}')
+        print(f"Using device: {ctx} ({torch.cuda.get_device_name(device)})")
     else:
-        ctx = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print("Using device: ", ctx)
+        print("CUDA not available, falling back to CPU")
+        ctx = torch.device('cpu')
 
-    #print(ctx)
     return ctx
 
 
