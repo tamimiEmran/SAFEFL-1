@@ -47,10 +47,10 @@ elif gpu_id == "1":
     datasets = ["MNIST"]
     bias_values = [0]
 elif gpu_id == "2":
-    dataset = "FEMNIST"
-    bias = [0.5]
+    datasets = ["FEMNIST"]
+    bias_values = [0.5]
 elif gpu_id == "3":
-    dataset = "MNIST"
+    datasets = ["MNIST"]
     bias_values = [0.5]
 
 femnist_base_args.extend(["--gpu", gpu_id])
