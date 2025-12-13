@@ -56,6 +56,12 @@ np.random.seed(42)
 torch.manual_seed(42)
 torch.cuda.manual_seed(42)
 def groupParams(param_list, group_size, isFactorGraph = False):
+    if "__round_id__" not in groupParams.__dict__:
+        groupParams.__dict__["__round_id__"] = 0
+    else:
+        groupParams.__dict__["__round_id__"] += 1
+
+    
     COMPARE_WITH = param_list[0].clone().shape
     param_list = [p.clone() for p in param_list]
         # users included
@@ -63,7 +69,7 @@ def groupParams(param_list, group_size, isFactorGraph = False):
 
     # shuffle IDs
     shuffled_ids = list(gradients_included.keys())
-    random.seed(42)
+    random.seed(42 + groupParams.__dict__["__round_id__"])
     random.shuffle(shuffled_ids)
     gradients_included = {id: gradients_included[id] for id in shuffled_ids}
 
@@ -109,6 +115,7 @@ def divide_and_conquer_bb_probs(gradients, net, lr, f, byz, device,
     Returns:
       p_malicious: list of length n_clients with values in [0,1]
     """
+    
     # 1) flatten gradients
     param_list = [torch.cat([xx.reshape(-1) for xx in x])[:, None]
                   for x in gradients]
@@ -1386,9 +1393,9 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
             if u_id < f:
                 hasMalUser = True
             
-
         # take the minimum weight in the group as the weight for the group. Taking the min is a conservative choice.
         weight = min(group_weights)
+        
 
         
         if weight < 0.95: # if the weight is less than 0.95, it means it's likely a bad gradient to include in the update
@@ -1412,7 +1419,7 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
     if sum_weights > 1e-5:
         global_update /= sum_weights
 
-    if round_id > 100:
+    if round_id > 0:
         idx = 0
         for j, (param) in enumerate(net.parameters()):
             param.add_(global_update[idx:(idx + torch.numel(param))].reshape(tuple(param.size())), alpha=-lr)
@@ -1467,6 +1474,7 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
     df = pd.DataFrame(records)
     DIR = r"M:\PythonTests\newSafeFL\SAFEFL\score_function_viz\observation_scores.csv"
     df.to_csv(DIR, mode="a", header=False, index=False)
+    print(f"skipped factor percentage: {bayesian_params['skippedFactorsCount'] / total_factors}")
     return bayesian_params
 
 

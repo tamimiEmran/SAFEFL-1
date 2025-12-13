@@ -202,13 +202,13 @@ def parse_args():
 
     # bayesian FL
     # num_groups, gradient_threshold=0.5, aggregation_method='average'
-    parser.add_argument("--factorGraphs_num_iters", help="number of iterations for factor graphs", type=int, default=100)
+    parser.add_argument("--factorGraphs_num_iters", help="number of iterations for factor graphs", type=int, default=500)
     parser.add_argument("--factorGraphs_temperature", help="temperature for factor graphs", type=float, default=0.1)
     parser.add_argument("--factorGraphs_initial_threshold", help="initial threshold for factor graphs", type=float, default=0.5)
     parser.add_argument("--factorGraphs_observation_method", help="method for observing scores in factor graphs", type=str, default="binarySignguard")
     parser.add_argument("--factorGraphs_likelihood_sigma", help="sigma for likelihood function in factor graphs", type=float, default=2)
-    parser.add_argument("--factorGraphs_true_negative_rate", help="true negative rate for factor graphs", type=float, default=0.7)
-    parser.add_argument("--factorGraphs_true_positive_rate", help="true positive rate for factor graphs", type=float, default=0.7)
+    parser.add_argument("--factorGraphs_true_negative_rate", help="true negative rate for factor graphs", type=float, default=0.6)
+    parser.add_argument("--factorGraphs_true_positive_rate", help="true positive rate for factor graphs", type=float, default=0.6)
     parser.add_argument("--factorGraphs_shuffling_strategy", help="shuffling strategy for factor graphs", type=str, default="random")
     #highProbThreshold
     parser.add_argument("--factorGraphs_highProbThreshold", help="high probability threshold for factor graphs", type=float, default=0.9)
@@ -352,7 +352,7 @@ def get_byz(byz_type):
     elif byz_type == "fltrust_attack":
         return attacks.fltrust_attack
     elif byz_type == "label_flipping_attack":
-        return attacks.no_byz
+        return attacks.label_flipping_attack
     elif byz_type == "min_max_attack":
         return attacks.min_max_attack
     elif byz_type == "min_sum_attack":
