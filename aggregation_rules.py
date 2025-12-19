@@ -449,7 +449,9 @@ def shieldfl(gradients, net, lr, f, byz, device, previous_gloabl_gradient, itera
     else:
         param_list = byz(param_list, net, lr, f, device)
 
-
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
+    n = len(param_list)
 
     # gradient normalization
     for i in range(f, len(param_list)):  # benign workers always normalize their gradients
@@ -472,9 +474,7 @@ def shieldfl(gradients, net, lr, f, byz, device, previous_gloabl_gradient, itera
         #param_list[i] = (param_list[i] - min_value) / (max_value - min_value)  # normalize to [0, 1]
         param_list[i] = param_list[i] / torch.norm(param_list[i], p=2.0)  # normalize with Euclidean norm
 
-    if group_size > 0:
-        _, param_list = groupParams(param_list, group_size)
-    n = len(param_list)
+
 
     copy_params = [param.clone() for param in param_list]
 
@@ -484,8 +484,10 @@ def shieldfl(gradients, net, lr, f, byz, device, previous_gloabl_gradient, itera
     checked_gradients = []
     cos_sim = []
     for param in param_list:  # check if gradients are normalized
+        print(param)
         sum = torch.sum(torch.square(param))  # emulates secure judgement
         if (math.isclose(sum.item(), 1.0, rel_tol=1e-05, abs_tol=1e-08)):
+            print("param is normalized")
             checked_gradients.append(param)
             cos_sim.append(F.cosine_similarity(param, previous_gloabl_gradient, dim=0,
                                                eps=1e-9))  # emulates secure cosine similarity
