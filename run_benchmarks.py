@@ -39,7 +39,7 @@ mnist_base_args = [
 ]
 #prompt the user to enter the gpu id
 gpu_id = input("Enter the GPU ID to use: ")
-exp_id = input("Enter the experiment ID: ")
+exp_id = input("Enter the experiment ID (write 'factorgraphs' for factor graphs experiments): ")
 
 if exp_id == "0":
     datasets = ["FEMNIST"]
@@ -65,7 +65,8 @@ elif exp_id == "6":
 elif exp_id == "7":
     datasets = ["MNIST"]
     defences = ['signguard']
-
+elif exp_id == "factorgraphs":
+    defences = ['factorGraphs']
 
 femnist_base_args.extend(["--gpu", gpu_id])
 mnist_base_args.extend(["--gpu", gpu_id])
