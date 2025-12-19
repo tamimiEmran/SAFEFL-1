@@ -348,11 +348,11 @@ def get_byz(byz_type):
     elif byz_type == "krum_attack":
         return attacks.krum_attack
     elif byz_type == "scaling_attack":
-        return attacks.scaling_attack_scale
+        return attacks.scaling_attack_scale # the attack is implemented in two steps now and after the data is assigned to the clients
     elif byz_type == "fltrust_attack":
         return attacks.fltrust_attack
     elif byz_type == "label_flipping_attack":
-        return attacks.label_flipping_attack
+        return attacks.no_byz # the attack is implemented after the data is assigned to the clients
     elif byz_type == "min_max_attack":
         return attacks.min_max_attack
     elif byz_type == "min_sum_attack":

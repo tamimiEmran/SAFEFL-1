@@ -449,19 +449,16 @@ def shieldfl(gradients, net, lr, f, byz, device, previous_gloabl_gradient, itera
     else:
         param_list = byz(param_list, net, lr, f, device)
 
-    if group_size > 0:
-        _, param_list = groupParams(param_list, group_size)
-    n = len(param_list)
 
-    copy_params = [param.clone() for param in param_list]
 
     # gradient normalization
-    for i in range(f, n):  # benign workers always normalize their gradients
+    for i in range(f, len(param_list)):  # benign workers always normalize their gradients
+        current_magnitude_high = torch.abs(param_list[i]) >= kappa
         if iteration == 0:  # emulate selective SGD
-            over_threshold = (param_list[i] >= kappa)
+            over_threshold = current_magnitude_high
         else:
-            over_threshold = torch.logical_or((param_list[i] >= kappa),
-                                              ((param_list[i] - previous_gradients[i]) >= kappa))
+            diff_magnitude_high = torch.abs(param_list[i] - previous_gradients[i]) >= kappa
+            over_threshold = current_magnitude_high | diff_magnitude_high
         param_list[i] = over_threshold * param_list[i]
 
         max_value = torch.max(param_list[i])
@@ -474,6 +471,12 @@ def shieldfl(gradients, net, lr, f, byz, device, previous_gloabl_gradient, itera
         min_value = torch.min(param_list[i])
         #param_list[i] = (param_list[i] - min_value) / (max_value - min_value)  # normalize to [0, 1]
         param_list[i] = param_list[i] / torch.norm(param_list[i], p=2.0)  # normalize with Euclidean norm
+
+    if group_size > 0:
+        _, param_list = groupParams(param_list, group_size)
+    n = len(param_list)
+
+    copy_params = [param.clone() for param in param_list]
 
     if (iteration == 0):  # if there is no prev gradient
         previous_gloabl_gradient = torch.mean(torch.cat(param_list, dim=1), dim=-1, keepdim=True)
@@ -837,6 +840,9 @@ def signguard(gradients, net, lr, f, byz, device, seed, group_size = 0):
 
     if group_size > 0:
         _, param_list = groupParams(param_list, group_size)
+        _group_size = group_size
+    else:
+        _group_size = 1
     n = len(param_list)
 
     num_params = param_list[0].size(0)
@@ -891,7 +897,7 @@ def signguard(gradients, net, lr, f, byz, device, seed, group_size = 0):
         global_update += param_list[i]
     
     if len(S) > 0:
-        global_update *= 1 / len(S)
+        global_update *= 1 / (len(S) * _group_size)
     else:
         global_update *= 0
 
@@ -1383,6 +1389,7 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
     # update net using fedavg with weights based on 1 - latent_variable
     global_update = torch.zeros_like(param_list[0])
     weights = []
+    skippedGroups = 0
     for g_id, gradient in group_gradients.items():
         group_weights = []
         hasMalUser = False
@@ -1395,24 +1402,27 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
             
         # take the minimum weight in the group as the weight for the group. Taking the min is a conservative choice.
         weight = min(group_weights)
-        
 
         
         if weight < 0.95: # if the weight is less than 0.95, it means it's likely a bad gradient to include in the update
             weight = 0.0  # thresholding
+            isIncludedToAverage = 1
             if not hasMalUser:
-                pass
+                skippedGroups += 1
                 #print(f"Round {round_id}: Group {g_id} of {len(group_gradients)} groups has no malicious user but was filtered out with weight {min(group_weights):.4f}")
 
 
 
         else:
+            isIncludedToAverage = 1 / len(group_weights)
             if hasMalUser:
                 print(f"Round {round_id}: Group {g_id} with malicious user accepted with weight {weight:.4f}")
     
 
         weights.append(weight)
         gradient *= weight
+        gradient *= isIncludedToAverage# effectively averages the summed gradients in the group
+        
         global_update += gradient
 
     sum_weights = sum(weights)
@@ -1475,6 +1485,7 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
     DIR = r"M:\PythonTests\newSafeFL\SAFEFL\score_function_viz\observation_scores.csv"
     df.to_csv(DIR, mode="a", header=False, index=False)
     print(f"skipped factor percentage: {bayesian_params['skippedFactorsCount'] / total_factors}")
+    print(f'Percentage of groups (out of {len(weights)}) that were skipped ({skippedGroups}): {skippedGroups / len(weights)}')
     return bayesian_params
 
 
@@ -1540,10 +1551,9 @@ def fedavg(gradients, net, lr, f, byz, device, data_sizes, group_size = 0):
 
     if group_size > 0:
         _, param_list = groupParams(param_list, group_size)
-
-
-    n = len(param_list)
-
+        n = len(param_list) * group_size
+    else:
+        n = len(param_list)
 
     # compute global model update
     global_update = torch.zeros(param_list[0].size()).to(device)

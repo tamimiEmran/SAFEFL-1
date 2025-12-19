@@ -15,10 +15,10 @@ datasets = ['FEMNIST','MNIST'] # for debugging purposes, only run MNIST
 bias_values = [0, 0.5] # for debugging purposes, only run 0, removed 0.25 and 0.5
 models = ["mobilenet_v3_small"] # removed "resnet18"
 attack_types = ['no', 'scaling_attack', "label_flipping_attack"] #, "scaling_attack", "label_flipping_attack"
-defences = ['fedavg', 'krum', 'shieldfl', 'signguard', 'factorGraphs'][4:]
+defences = ['fedavg', 'krum', 'shieldfl', 'signguard', 'factorGraphs'][:4]
 isGrouped_list = [True, False]
 group_size_list = [10] # removed 20
-nbyz_list = [10] # removed 20
+nbyz_list = [20] # removed 20
 
 
 femnist_base_args = [
@@ -42,16 +42,29 @@ gpu_id = input("Enter the GPU ID to use: ")
 
 if gpu_id == "0":
     datasets = ["FEMNIST"]
-    bias_values = [0]
+    defences = ['fedavg']
 elif gpu_id == "1":
     datasets = ["MNIST"]
-    bias_values = [0]
+    defences = ['fedavg']
 elif gpu_id == "2":
     datasets = ["FEMNIST"]
-    bias_values = [0.5]
+    defences = ['krum']
 elif gpu_id == "3":
     datasets = ["MNIST"]
-    bias_values = [0.5]
+    defences = ['krum']
+elif gpu_id == "4":
+    datasets = ["FEMNIST"]
+    defences = ['shieldfl']
+elif gpu_id == "5":
+    datasets = ["MNIST"]
+    defences = ['shieldfl']
+elif gpu_id == "6":
+    datasets = ["FEMNIST"]
+    defences = ['signguard']
+elif gpu_id == "7":
+    datasets = ["MNIST"]
+    defences = ['signguard']
+
 
 femnist_base_args.extend(["--gpu", gpu_id])
 mnist_base_args.extend(["--gpu", gpu_id])

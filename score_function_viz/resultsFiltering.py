@@ -306,12 +306,492 @@ def compare_accuracy_no_attack_vs_label_flipping(df, dataset=None, nbyz=None, gr
     return fig
 
 
+def compare_accuracy_all_combinations(df, save_dir=None, show_plots=True):
+    """
+    Generate comparison figures for all combinations of nbyz, bias, dataset, and group_size.
+    
+    Note: When byz_type='no' (no attack), the nbyz value is a default placeholder
+    and is ignored. The 'no attack' baseline is matched by (dataset, bias, group_size) only,
+    then compared against each (dataset, bias, nbyz, group_size) attack configuration.
+    
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        DataFrame with columns: aggregation, byz_type, last_accuracy, dataset, nbyz, bias, group_size
+    save_dir : str, optional
+        Directory to save figures. If None, figures are not saved.
+    show_plots : bool, default True
+        Whether to display the plots. Set to False when only saving.
+    
+    Returns:
+    --------
+    list
+        List of (params_dict, figure) tuples for all generated figures
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from itertools import product
+    import os
+    
+    # Separate 'no attack' and 'label_flipping_attack' data
+    no_attack_df = df[df['byz_type'] == 'no'].copy()
+    attack_df = df[df['byz_type'] == 'label_flipping_attack'].copy()
+    
+    # Get unique values for each parameter from attack data (nbyz matters here)
+    datasets = sorted(attack_df['dataset'].unique())
+    nbyz_values = sorted(attack_df['nbyz'].unique())
+    bias_values = sorted(attack_df['bias'].unique())
+    group_size_values = sorted(attack_df['group_size'].unique())
+    
+    print(f"Generating figures for all parameter combinations:")
+    print(f"  Datasets: {datasets}")
+    print(f"  NByz values (from attack data): {nbyz_values}")
+    print(f"  Bias values: {bias_values}")
+    print(f"  Group size values: {group_size_values}")
+    print(f"  Total combinations: {len(datasets) * len(nbyz_values) * len(bias_values) * len(group_size_values)}")
+    print("=" * 60)
+    
+    # Create save directory if specified
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+    
+    figures = []
+    
+    # Colors - using a vibrant palette
+    colors = {
+        'no': '#2ecc71',  # Green for no attack
+        'label_flipping_attack': '#e74c3c'  # Red for attack
+    }
+    
+    for dataset, nbyz, bias, group_size in product(datasets, nbyz_values, bias_values, group_size_values):
+        # Get 'no attack' baseline for this (dataset, bias, group_size) - ignore nbyz for no attack
+        no_attack_data = no_attack_df[
+            (no_attack_df['dataset'] == dataset) &
+            (no_attack_df['bias'] == bias) &
+            (no_attack_df['group_size'] == group_size)
+        ]
+        
+        # Get attack data for this (dataset, nbyz, bias, group_size)
+        attack_data = attack_df[
+            (attack_df['dataset'] == dataset) &
+            (attack_df['nbyz'] == nbyz) &
+            (attack_df['bias'] == bias) &
+            (attack_df['group_size'] == group_size)
+        ]
+        
+        if no_attack_data.empty:
+            print(f"  Skipping: Dataset={dataset}, NByz={nbyz}, Bias={bias}, GroupSize={group_size} (no baseline 'no attack' data)")
+            continue
+        
+        if attack_data.empty:
+            print(f"  Skipping: Dataset={dataset}, NByz={nbyz}, Bias={bias}, GroupSize={group_size} (no attack data)")
+            continue
+        
+        print(f"  Generating: Dataset={dataset}, NByz={nbyz}, Bias={bias}, GroupSize={group_size}")
+        
+        # Combine the data for this comparison
+        combo_df = pd.concat([no_attack_data, attack_data], ignore_index=True)
+        
+        # Get unique aggregation methods
+        aggregations = sorted(combo_df['aggregation'].unique())
+        
+        # Create pivot table for comparison
+        pivot_data = combo_df.pivot_table(
+            index='aggregation',
+            columns='byz_type',
+            values='last_accuracy',
+            aggfunc='mean'
+        ).reindex(aggregations)
+        
+        # Set up the figure
+        plt.style.use('seaborn-v0_8-darkgrid')
+        fig, ax = plt.subplots(figsize=(12, 7))
+        
+        # Bar positioning
+        x = np.arange(len(aggregations))
+        width = 0.35
+        
+        # Get values, handling missing columns
+        no_values = pivot_data['no'].values if 'no' in pivot_data.columns else [0] * len(aggregations)
+        attack_values = pivot_data['label_flipping_attack'].values if 'label_flipping_attack' in pivot_data.columns else [0] * len(aggregations)
+        
+        # Replace NaN with 0 for plotting
+        no_values = np.nan_to_num(no_values, nan=0)
+        attack_values = np.nan_to_num(attack_values, nan=0)
+        
+        # Create bars
+        bars_no = ax.bar(
+            x - width/2, 
+            no_values, 
+            width, 
+            label='No Attack', 
+            color=colors['no'],
+            edgecolor='white',
+            linewidth=1.2
+        )
+        bars_attack = ax.bar(
+            x + width/2, 
+            attack_values, 
+            width, 
+            label='Label Flipping Attack', 
+            color=colors['label_flipping_attack'],
+            edgecolor='white',
+            linewidth=1.2
+        )
+        
+        # Add value labels on bars
+        def add_bar_labels(bars):
+            for bar in bars:
+                height = bar.get_height()
+                if height > 0:
+                    ax.annotate(f'{height:.3f}',
+                                xy=(bar.get_x() + bar.get_width() / 2, height),
+                                xytext=(0, 3),
+                                textcoords="offset points",
+                                ha='center', va='bottom',
+                                fontsize=9, fontweight='bold',
+                                color='#2c3e50')
+        
+        add_bar_labels(bars_no)
+        add_bar_labels(bars_attack)
+        
+        # Styling
+        ax.set_xlabel('Aggregation Method', fontsize=12, fontweight='bold', color='#2c3e50')
+        ax.set_ylabel('Last Accuracy', fontsize=12, fontweight='bold', color='#2c3e50')
+        
+        # Title with parameter info
+        title = f'Last Accuracy: No Attack vs Label Flipping Attack\nDataset: {dataset} | NByz: {nbyz} | Bias: {bias} | GroupSize: {group_size}'
+        ax.set_title(title, fontsize=14, fontweight='bold', color='#2c3e50', pad=15)
+        
+        ax.set_xticks(x)
+        ax.set_xticklabels([agg.upper() for agg in aggregations], fontsize=11, fontweight='bold')
+        ax.set_ylim(0, 1.0)
+        
+        # Add horizontal grid lines
+        ax.yaxis.grid(True, linestyle='--', alpha=0.7)
+        ax.set_axisbelow(True)
+        
+        # Legend
+        ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
+        
+        # Add accuracy drop annotation
+        for i, agg in enumerate(aggregations):
+            no_acc = pivot_data.loc[agg, 'no'] if 'no' in pivot_data.columns and pd.notna(pivot_data.loc[agg, 'no']) else None
+            attack_acc = pivot_data.loc[agg, 'label_flipping_attack'] if 'label_flipping_attack' in pivot_data.columns and pd.notna(pivot_data.loc[agg, 'label_flipping_attack']) else None
+            
+            if no_acc is not None and attack_acc is not None and no_acc > 0:
+                drop = no_acc - attack_acc
+                drop_pct = (drop / no_acc) * 100
+                color = '#c0392b' if drop > 0 else '#27ae60'
+                ax.annotate(f'{drop_pct:+.1f}%',
+                            xy=(i, max(no_acc, attack_acc) + 0.06),
+                            ha='center', va='bottom',
+                            fontsize=8, fontweight='bold',
+                            color=color,
+                            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor=color, alpha=0.8))
+        
+        plt.tight_layout()
+        
+        # Save figure if directory specified
+        if save_dir:
+            filename = f"accuracy_comparison_{dataset}_nbyz{nbyz}_bias{bias}_groupsize{group_size}.png"
+            filepath = os.path.join(save_dir, filename)
+            plt.savefig(filepath, dpi=150, bbox_inches='tight', facecolor='white')
+            print(f"    Saved: {filepath}")
+        
+        # Store figure info
+        params = {'dataset': dataset, 'nbyz': nbyz, 'bias': bias, 'group_size': group_size}
+        figures.append((params, fig))
+        
+        if show_plots:
+            plt.show()
+        else:
+            plt.close(fig)
+    
+    print("=" * 60)
+    print(f"Generated {len(figures)} figures total.")
+    
+    return figures
+
+
+def compare_accuracy_scaling_attack_all_combinations(df, save_dir=None, show_plots=True):
+    """
+    Generate comparison figures for scaling attack across all combinations of nbyz, bias, dataset, and group_size.
+    Each figure shows two subplots: (1) Accuracy comparison, (2) Backdoor success rate.
+    
+    Note: When byz_type='no' (no attack), the nbyz value is a default placeholder
+    and is ignored. The 'no attack' baseline is matched by (dataset, bias, group_size) only,
+    then compared against each (dataset, bias, nbyz, group_size) attack configuration.
+    
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        DataFrame with columns: aggregation, byz_type, last_accuracy, last_backdoor_success, 
+        dataset, nbyz, bias, group_size
+    save_dir : str, optional
+        Directory to save figures. If None, figures are not saved.
+    show_plots : bool, default True
+        Whether to display the plots. Set to False when only saving.
+    
+    Returns:
+    --------
+    list
+        List of (params_dict, figure) tuples for all generated figures
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from itertools import product
+    import os
+    
+    # Separate 'no attack' and 'scaling_attack' data
+    no_attack_df = df[df['byz_type'] == 'no'].copy()
+    attack_df = df[df['byz_type'] == 'scaling_attack'].copy()
+    
+    if attack_df.empty:
+        print("No scaling_attack data found in the dataset.")
+        return []
+    
+    # Get unique values for each parameter from attack data (nbyz matters here)
+    datasets = sorted(attack_df['dataset'].unique())
+    nbyz_values = sorted(attack_df['nbyz'].unique())
+    bias_values = sorted(attack_df['bias'].unique())
+    group_size_values = sorted(attack_df['group_size'].unique())
+    
+    print(f"Generating figures for SCALING ATTACK - all parameter combinations:")
+    print(f"  Datasets: {datasets}")
+    print(f"  NByz values (from attack data): {nbyz_values}")
+    print(f"  Bias values: {bias_values}")
+    print(f"  Group size values: {group_size_values}")
+    print(f"  Total combinations: {len(datasets) * len(nbyz_values) * len(bias_values) * len(group_size_values)}")
+    print("=" * 60)
+    
+    # Create save directory if specified
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+    
+    figures = []
+    
+    # Colors - using a vibrant palette
+    colors = {
+        'no': '#2ecc71',  # Green for no attack
+        'scaling_attack': '#9b59b6'  # Purple for scaling attack
+    }
+    
+    for dataset, nbyz, bias, group_size in product(datasets, nbyz_values, bias_values, group_size_values):
+        # Get 'no attack' baseline for this (dataset, bias, group_size) - ignore nbyz for no attack
+        no_attack_data = no_attack_df[
+            (no_attack_df['dataset'] == dataset) &
+            (no_attack_df['bias'] == bias) &
+            (no_attack_df['group_size'] == group_size)
+        ]
+        
+        # Get attack data for this (dataset, nbyz, bias, group_size)
+        attack_data = attack_df[
+            (attack_df['dataset'] == dataset) &
+            (attack_df['nbyz'] == nbyz) &
+            (attack_df['bias'] == bias) &
+            (attack_df['group_size'] == group_size)
+        ]
+        
+        if no_attack_data.empty:
+            print(f"  Skipping: Dataset={dataset}, NByz={nbyz}, Bias={bias}, GroupSize={group_size} (no baseline 'no attack' data)")
+            continue
+        
+        if attack_data.empty:
+            print(f"  Skipping: Dataset={dataset}, NByz={nbyz}, Bias={bias}, GroupSize={group_size} (no attack data)")
+            continue
+        
+        print(f"  Generating: Dataset={dataset}, NByz={nbyz}, Bias={bias}, GroupSize={group_size}")
+        
+        # Combine the data for this comparison
+        combo_df = pd.concat([no_attack_data, attack_data], ignore_index=True)
+        
+        # Get unique aggregation methods
+        aggregations = sorted(combo_df['aggregation'].unique())
+        
+        # Create pivot tables for comparison
+        pivot_accuracy = combo_df.pivot_table(
+            index='aggregation',
+            columns='byz_type',
+            values='last_accuracy',
+            aggfunc='mean'
+        ).reindex(aggregations)
+        
+        pivot_backdoor = combo_df.pivot_table(
+            index='aggregation',
+            columns='byz_type',
+            values='last_backdoor_success',
+            aggfunc='mean'
+        ).reindex(aggregations)
+        
+        # Set up the figure with 2 subplots
+        plt.style.use('seaborn-v0_8-darkgrid')
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
+        
+        # Bar positioning
+        x = np.arange(len(aggregations))
+        width = 0.35
+        
+        # ============== SUBPLOT 1: ACCURACY ==============
+        # Get values, handling missing columns
+        no_acc_values = pivot_accuracy['no'].values if 'no' in pivot_accuracy.columns else [0] * len(aggregations)
+        attack_acc_values = pivot_accuracy['scaling_attack'].values if 'scaling_attack' in pivot_accuracy.columns else [0] * len(aggregations)
+        
+        # Replace NaN with 0 for plotting
+        no_acc_values = np.nan_to_num(no_acc_values, nan=0)
+        attack_acc_values = np.nan_to_num(attack_acc_values, nan=0)
+        
+        # Create bars for accuracy
+        bars_no_acc = ax1.bar(
+            x - width/2, 
+            no_acc_values, 
+            width, 
+            label='No Attack', 
+            color=colors['no'],
+            edgecolor='white',
+            linewidth=1.2
+        )
+        bars_attack_acc = ax1.bar(
+            x + width/2, 
+            attack_acc_values, 
+            width, 
+            label='Scaling Attack', 
+            color=colors['scaling_attack'],
+            edgecolor='white',
+            linewidth=1.2
+        )
+        
+        # Add value labels on accuracy bars
+        def add_bar_labels(ax, bars, fontsize=8):
+            for bar in bars:
+                height = bar.get_height()
+                if height > 0:
+                    ax.annotate(f'{height:.3f}',
+                                xy=(bar.get_x() + bar.get_width() / 2, height),
+                                xytext=(0, 3),
+                                textcoords="offset points",
+                                ha='center', va='bottom',
+                                fontsize=fontsize, fontweight='bold',
+                                color='#2c3e50')
+        
+        add_bar_labels(ax1, bars_no_acc)
+        add_bar_labels(ax1, bars_attack_acc)
+        
+        # Styling for accuracy subplot
+        ax1.set_xlabel('Aggregation Method', fontsize=11, fontweight='bold', color='#2c3e50')
+        ax1.set_ylabel('Last Accuracy', fontsize=11, fontweight='bold', color='#2c3e50')
+        ax1.set_title('Model Accuracy', fontsize=13, fontweight='bold', color='#2c3e50', pad=10)
+        ax1.set_xticks(x)
+        ax1.set_xticklabels([agg.upper() for agg in aggregations], fontsize=10, fontweight='bold', rotation=15, ha='right')
+        ax1.set_ylim(0, 1.0)
+        ax1.yaxis.grid(True, linestyle='--', alpha=0.7)
+        ax1.set_axisbelow(True)
+        ax1.legend(loc='upper right', fontsize=9, framealpha=0.9)
+        
+        # Add accuracy drop annotation
+        for i, agg in enumerate(aggregations):
+            no_acc = pivot_accuracy.loc[agg, 'no'] if 'no' in pivot_accuracy.columns and pd.notna(pivot_accuracy.loc[agg, 'no']) else None
+            attack_acc = pivot_accuracy.loc[agg, 'scaling_attack'] if 'scaling_attack' in pivot_accuracy.columns and pd.notna(pivot_accuracy.loc[agg, 'scaling_attack']) else None
+            
+            if no_acc is not None and attack_acc is not None and no_acc > 0:
+                drop = no_acc - attack_acc
+                drop_pct = (drop / no_acc) * 100
+                color = '#c0392b' if drop > 0 else '#27ae60'
+                ax1.annotate(f'{drop_pct:+.1f}%',
+                            xy=(i, max(no_acc, attack_acc) + 0.05),
+                            ha='center', va='bottom',
+                            fontsize=7, fontweight='bold',
+                            color=color,
+                            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor=color, alpha=0.8))
+        
+        # ============== SUBPLOT 2: BACKDOOR SUCCESS ==============
+        # Get backdoor success values (only for scaling attack, no attack has null)
+        backdoor_values = pivot_backdoor['scaling_attack'].values if 'scaling_attack' in pivot_backdoor.columns else [0] * len(aggregations)
+        backdoor_values = np.nan_to_num(backdoor_values, nan=0)
+        
+        # Create bars for backdoor success - single bar per aggregation
+        bar_colors = ['#e74c3c' if v > 0.5 else '#f39c12' if v > 0.2 else '#27ae60' for v in backdoor_values]
+        bars_backdoor = ax2.bar(
+            x, 
+            backdoor_values, 
+            width * 1.5, 
+            label='Backdoor Success Rate',
+            color=bar_colors,
+            edgecolor='white',
+            linewidth=1.2
+        )
+        
+        # Add value labels on backdoor bars
+        for bar in bars_backdoor:
+            height = bar.get_height()
+            ax2.annotate(f'{height:.3f}',
+                        xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3),
+                        textcoords="offset points",
+                        ha='center', va='bottom',
+                        fontsize=9, fontweight='bold',
+                        color='#2c3e50')
+        
+        # Styling for backdoor subplot
+        ax2.set_xlabel('Aggregation Method', fontsize=11, fontweight='bold', color='#2c3e50')
+        ax2.set_ylabel('Backdoor Success Rate', fontsize=11, fontweight='bold', color='#2c3e50')
+        ax2.set_title('Backdoor Attack Success (Lower is Better)', fontsize=13, fontweight='bold', color='#2c3e50', pad=10)
+        ax2.set_xticks(x)
+        ax2.set_xticklabels([agg.upper() for agg in aggregations], fontsize=10, fontweight='bold', rotation=15, ha='right')
+        ax2.set_ylim(0, 1.0)
+        ax2.yaxis.grid(True, linestyle='--', alpha=0.7)
+        ax2.set_axisbelow(True)
+        
+        # Add color legend for backdoor
+        from matplotlib.patches import Patch
+        legend_elements = [
+            Patch(facecolor='#27ae60', edgecolor='white', label='Low (<20%)'),
+            Patch(facecolor='#f39c12', edgecolor='white', label='Medium (20-50%)'),
+            Patch(facecolor='#e74c3c', edgecolor='white', label='High (>50%)')
+        ]
+        ax2.legend(handles=legend_elements, loc='upper right', fontsize=9, framealpha=0.9, title='Risk Level')
+        
+        # Main title for entire figure
+        fig.suptitle(f'Scaling Attack Analysis\nDataset: {dataset} | NByz: {nbyz} | Bias: {bias} | GroupSize: {group_size}',
+                     fontsize=14, fontweight='bold', color='#2c3e50', y=1.02)
+        
+        plt.tight_layout()
+        
+        # Save figure if directory specified
+        if save_dir:
+            filename = f"scaling_attack_{dataset}_nbyz{nbyz}_bias{bias}_groupsize{group_size}.png"
+            filepath = os.path.join(save_dir, filename)
+            plt.savefig(filepath, dpi=150, bbox_inches='tight', facecolor='white')
+            print(f"    Saved: {filepath}")
+        
+        # Store figure info
+        params = {'dataset': dataset, 'nbyz': nbyz, 'bias': bias, 'group_size': group_size}
+        figures.append((params, fig))
+        
+        if show_plots:
+            plt.show()
+        else:
+            plt.close(fig)
+    
+    print("=" * 60)
+    print(f"Generated {len(figures)} figures total.")
+    
+    return figures
+
+
 # Example usage - uncomment to run:
 if __name__ == "__main__":
-    # Compare all aggregations for all data
-    print("\n\nGenerating comparison visualization...")
-    compare_accuracy_no_attack_vs_label_flipping(df)
+    # Option 1: Generate figures for label flipping attack (all parameter combinations)
+    print("\n\nGenerating comparison visualizations for LABEL FLIPPING attack...")
+    compare_accuracy_all_combinations(df, save_dir='comparison_figures', show_plots=True)
     
-    # Or with specific filters:
-    # compare_accuracy_no_attack_vs_label_flipping(df, dataset='FEMNIST', nbyz=10, group_size=10)
-    # compare_accuracy_no_attack_vs_label_flipping(df, save_path='accuracy_comparison.png')
+    # Option 2: Generate figures for scaling attack with accuracy + backdoor success
+    print("\n\nGenerating comparison visualizations for SCALING attack...")
+    compare_accuracy_scaling_attack_all_combinations(df, save_dir='scaling_attack_figures', show_plots=True)
+    
+    # Option 3: Generate a single comparison figure with specific filters
+    # compare_accuracy_no_attack_vs_label_flipping(df, dataset='FEMNIST', nbyz=10)
+    
+    # Option 4: Save all figures without displaying
+    # compare_accuracy_all_combinations(df, save_dir='comparison_figures', show_plots=False)
+    # compare_accuracy_scaling_attack_all_combinations(df, save_dir='scaling_attack_figures', show_plots=False)
