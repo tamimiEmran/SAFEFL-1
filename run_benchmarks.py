@@ -39,29 +39,30 @@ mnist_base_args = [
 ]
 #prompt the user to enter the gpu id
 gpu_id = input("Enter the GPU ID to use: ")
+exp_id = input("Enter the experiment ID: ")
 
-if gpu_id == "0":
+if exp_id == "0":
     datasets = ["FEMNIST"]
     defences = ['fedavg']
-elif gpu_id == "1":
+elif exp_id == "1":
     datasets = ["MNIST"]
     defences = ['fedavg']
-elif gpu_id == "2":
+elif exp_id == "2":
     datasets = ["FEMNIST"]
     defences = ['krum']
-elif gpu_id == "3":
+elif exp_id == "3":
     datasets = ["MNIST"]
     defences = ['krum']
-elif gpu_id == "4":
+elif exp_id == "4":
     datasets = ["FEMNIST"]
     defences = ['shieldfl']
-elif gpu_id == "5":
+elif exp_id == "5":
     datasets = ["MNIST"]
     defences = ['shieldfl']
-elif gpu_id == "6":
+elif exp_id == "6":
     datasets = ["FEMNIST"]
     defences = ['signguard']
-elif gpu_id == "7":
+elif exp_id == "7":
     datasets = ["MNIST"]
     defences = ['signguard']
 
