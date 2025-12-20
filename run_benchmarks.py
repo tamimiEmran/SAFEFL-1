@@ -67,7 +67,22 @@ elif exp_id == "7":
     defences = ['signguard']
 elif exp_id == "factorgraphs":
     defences = ['factorGraphs']
+    datasets = ['FEMNIST']
+    bias_values = [0]
+elif exp_id == "factorgraphs1":
+    defences = ['factorGraphs']
+    datasets = ['MNIST']
+    bias_values = [0]
+elif exp_id == 'factorgraphs2':
+    defences = ['factorGraphs']
+    datasets = ['FEMNIST']
+    bias_values = [0.5]
+elif exp_id == 'factorgraphs3':
+    defences = ['factorGraphs']
+    datasets = ['MNIST']
+    bias_values = [0.5]
 
+    
 femnist_base_args.extend(["--gpu", gpu_id])
 mnist_base_args.extend(["--gpu", gpu_id])
 
