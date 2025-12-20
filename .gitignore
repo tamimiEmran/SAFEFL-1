@@ -156,3 +156,4 @@ score_function_viz/*.csv
 figures/
 data/
 /results3rdOct
+*.pdf
