@@ -220,7 +220,7 @@ def parse_args():
     parser.add_argument("--nbyz", help="# byzantines", type=int, default=6)
     parser.add_argument("--byz_type", help="type of attack", type=str, default="no", choices=["no", "trim_attack", "krum_attack",
                             "scaling_attack", "fltrust_attack", "label_flipping_attack", "min_max_attack", "min_sum_attack"])
-    parser.add_argument("--group_size", help="group size", type=int, default=0)
+    parser.add_argument("--group_size", help="group size", type=int, default=0) ###DONT CHANGE DEFAULT RUN_BENCHMARKS.PY ASSUMES IT.
     ### MP-SPDZ
     parser.add_argument('--mpspdz', default=False, action='store_true', help='Run example in multiprocess mode')
     parser.add_argument("--port", help="port for the mpc servers", type=int, default=14000)
