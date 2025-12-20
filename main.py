@@ -1,5 +1,22 @@
 from __future__ import print_function
+#from asyncio import graph
+import os
 
+# --- CRITICAL JAX CONFIG FOR HYBRID PYTORCH ENVIRONMENTS ---
+# 1. Stop JAX from stealing all GPU memory (prevents OOM when running with PyTorch)
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
+
+# 2. Enable 64-bit precision (Required for PGMax stability)
+import jax
+jax.config.update("jax_enable_x64", True)
+import torch
+
+print(f"PyTorch Version: {torch.__version__}")
+print(f"JAX Version: {jax.__version__}")
+
+# This line will fail if JAX was downgraded by PGMax
+print(f"JAX Devices: {jax.devices()}")
 import aggregation_rules
 import numpy as np
 import random
@@ -14,7 +31,6 @@ import time
 
 import json
 
-import torch
 import torch.nn as nn
 import torch.utils.data
 from matplotlib import pyplot as plt
