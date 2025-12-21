@@ -76,7 +76,7 @@ def plot_grouping_impact(df):
     Splits datasets into columns (Facets) to declutter the view.
     Comparison: Grouped vs Non-Grouped under Label Flipping.
     """
-    subset = df[df['raw_attack'] == 'label_flipping_attack']
+    subset = df[df['raw_attack'] == 'no']
     if subset.empty: return
 
     # Catplot automatically creates side-by-side subplots
@@ -94,7 +94,7 @@ def plot_grouping_impact(df):
     )
     
     g.fig.subplots_adjust(top=0.85)
-    g.fig.suptitle('Impact of Grouping on Model Accuracy (Label Flipping)', fontsize=16)
+    g.fig.suptitle('Impact of Grouping on Model Accuracy (No Attack)', fontsize=16)
     g.set_axis_labels("", "Accuracy (%)")
     g.set_titles("{col_name}")
     
@@ -115,74 +115,98 @@ def plot_grouping_impact(df):
 # ==========================================
 def plot_bias_robustness(df):
     """
-    Focuses only on Grouped methods. 
-    Compares IID (0.0) vs Non-IID (0.5).
+    Compares Grouped vs Non-Grouped and IID (0.0) vs Non-IID (0.5).
+    Uses a Scatter Plot to show the distribution and impact.
     """
-    subset = df[
-        (df['grouping'] == 'Grouped') & 
-        (df['raw_attack'] == 'label_flipping_attack')
-    ]
+    # Filter for specific attacks (Label Flipping & No Attack)
+    subset = df[df['raw_attack'].isin(['label_flipping_attack', 'no'])].copy()
     if subset.empty: return
 
-    plt.figure(figsize=(10, 6))
-    
-    # Simple bar chart comparing bias levels
-    sns.barplot(
+    # Convert bias to string for discrete coloring
+    subset['bias'] = subset['bias'].astype(str)
+
+    # Create a faceted scatter plot (relplot)
+    # Rows: Attack Type
+    # Cols: Dataset
+    # X: Method
+    # Y: Accuracy
+    # Hue: Bias (Color shows the bias impact)
+    # Style: Grouping (Shape shows Grouped vs Non-Grouped)
+    g = sns.relplot(
         data=subset, 
         x='method', 
         y='final_acc', 
         hue='bias', 
-        palette="RdBu_r"
+        style='grouping',
+        col='dataset',
+        row='attack',
+        kind='scatter', 
+        s=200,             # Larger markers
+        height=4, 
+        aspect=1.5,
+        palette="viridis", 
+        alpha=0.8
     )
     
-    plt.title('Robustness to Non-IID Data (Grouped Methods Only)', fontsize=14)
-    plt.ylabel('Accuracy (%)')
-    plt.xlabel('Method')
-    plt.legend(title='Bias ($\\beta$)')
-    plt.ylim(0, 100)
-    plt.grid(axis='y', alpha=0.3)
-    plt.tight_layout()
+    g.fig.subplots_adjust(top=0.9)
+    g.fig.suptitle('Impact of Bias and Grouping on Accuracy', fontsize=16)
+    g.set_axis_labels("Aggregation Method", "Accuracy (%)")
+    g.set_titles(row_template="{row_name}", col_template="{col_name}")
+    
+    # Add grid for easier reading
+    for ax in g.axes.flat:
+        ax.grid(True, linestyle='--', alpha=0.5)
+
     plt.savefig('fig_bias_robustness.pdf')
     print("Saved 'fig_bias_robustness.pdf'")
 
-# ==========================================
 # FIGURE 3: BACKDOOR TRADEOFF (SCATTER)
 # ==========================================
 def plot_backdoor_tradeoff(df):
     """
     Scatter plot: Accuracy (X) vs Backdoor Success (Y).
     Best performance is Bottom-Right corner.
+    Creates a 2x2 grid of subplots for each (dataset, bias) combination.
     """
     subset = df[df['raw_attack'] == 'scaling_attack']
     if subset.empty: return
 
-    plt.figure(figsize=(8, 6))
-    
-    # Create scatter plot
-    sns.scatterplot(
-        data=subset, 
-        x='final_acc', 
-        y='final_bsr', 
-        hue='method', 
-        style='grouping',  # Distinct marker for Grouped/Non-Grouped
-        s=150,             # Marker size
-        palette='deep'
+    # Use relplot to create a grid of scatter plots
+    g = sns.relplot(
+        data=subset,
+        x='final_acc',
+        y='final_bsr',
+        hue='method',
+        style='grouping',
+        col='bias',
+        row='dataset',
+        s=150,
+        palette='deep',
+        height=4,
+        aspect=1.2
     )
-    
-    # Add "Ideal Zone" annotation
-    plt.annotate('Ideal Zone\n(High Acc, Low BSR)', 
-                 xy=(98, 2), xytext=(80, 20),
-                 arrowprops=dict(facecolor='black', shrink=0.05),
-                 fontsize=10, bbox=dict(boxstyle="round", fc="w"))
 
-    plt.title('Backdoor Defense Trade-off: Accuracy vs. Attack Success', fontsize=14)
-    plt.xlabel('Main Task Accuracy (%) [Higher is Better]')
-    plt.ylabel('Backdoor Success Rate (%) [Lower is Better]')
-    plt.grid(True, linestyle='--', alpha=0.5)
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    plt.tight_layout()
+    g.fig.subplots_adjust(top=0.9, right=0.85) # Adjust space for legend
+    g.fig.suptitle('Backdoor Defense Trade-off: Accuracy vs. Attack Success', fontsize=16)
+
+    g.set_axis_labels("Main Task Accuracy (%)", "Backdoor Success Rate (%)")
+    g.set_titles(row_template="{row_name}", col_template="Bias = {col_name}")
+    
+    # Move legend outside
+    sns.move_legend(g, "upper left", bbox_to_anchor=(0.85, 0.6))
+
+
+    # Add "Ideal Zone" annotation to each subplot
+    for ax in g.axes.flat:
+        ax.grid(True, linestyle='--', alpha=0.5)
+        ax.annotate('Ideal Zone', 
+                     xy=(98, 2), xytext=(75, 25),
+                     arrowprops=dict(facecolor='black', shrink=0.05, width=1, headwidth=5),
+                     fontsize=9, bbox=dict(boxstyle="round,pad=0.3", fc="w", ec="k", lw=1))
+
     plt.savefig('fig_backdoor_tradeoff.pdf')
     print("Saved 'fig_backdoor_tradeoff.pdf'")
+
 
 # ==========================================
 # TABLE GENERATOR (CLEAN LATEX)

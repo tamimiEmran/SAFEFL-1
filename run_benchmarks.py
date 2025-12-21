@@ -69,20 +69,29 @@ elif exp_id == "factorgraphs":
     defences = ['factorGraphs']
     datasets = ['FEMNIST']
     bias_values = [0]
+    isGrouped_list = [True]  # FactorGraphs only run as Grouped
 elif exp_id == "factorgraphs1":
     defences = ['factorGraphs']
     datasets = ['MNIST']
     bias_values = [0]
+    isGrouped_list = [True]  # FactorGraphs only run as Grouped
 elif exp_id == 'factorgraphs2':
     defences = ['factorGraphs']
     datasets = ['FEMNIST']
     bias_values = [0.5]
+    isGrouped_list = [True]  # FactorGraphs only run as Grouped
 elif exp_id == 'factorgraphs3':
     defences = ['factorGraphs']
     datasets = ['MNIST']
     bias_values = [0.5]
+    isGrouped_list = [True]  # FactorGraphs only run as Grouped
 
-    
+elif exp_id == "factorgraphs_all":
+    defences = ['factorGraphs']
+    datasets = ['FEMNIST','MNIST']
+    bias_values = [0,0.5]
+    isGrouped_list = [True]  # FactorGraphs only run as Grouped
+
 femnist_base_args.extend(["--gpu", gpu_id])
 mnist_base_args.extend(["--gpu", gpu_id])
 
