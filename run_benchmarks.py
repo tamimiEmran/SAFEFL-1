@@ -24,17 +24,17 @@ nbyz_list = [20] # removed 20
 femnist_base_args = [
     "--nworkers", "200",
     "--batch_size", "32",
-    "--niter", "1000", #2500
+    "--niter", "1", #2500
     "--lr", "0.1",
-    "--test_every", "10", #10
+    "--test_every", "1", #10
     
 ]
 mnist_base_args = [
     "--nworkers", "200",
     "--batch_size", "32",
-    "--niter", "500", #2500
+    "--niter", "1", #2500
     "--lr", "0.1",
-    "--test_every", "10", #10
+    "--test_every", "1", #10
     
 ]
 #prompt the user to enter the gpu id

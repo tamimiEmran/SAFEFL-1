@@ -20,7 +20,8 @@ print(f"JAX Devices: {jax.devices()}")
 
 import jax
 # Explicitly import the new backend extension as requested by JAX 0.8+
-import jax.extend.backend
+if jax.__version__ >= "0.8.0":
+    import jax.extend.backend
 
 # -------------------------------------------------------------------------
 # COMPATIBILITY SHIM: Fix PGMax for JAX 0.8+ / RTX 5090
