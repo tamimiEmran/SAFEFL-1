@@ -84,8 +84,9 @@ def save_results_to_csv(runs_test_accuracy, runs_backdoor_success, test_iteratio
     import os
     import numpy as np
     
-    # Create results directory if it doesn't exist
+    # Create results directories if they don't exist
     os.makedirs("results3rdOct", exist_ok=True)
+    os.makedirs("finalResults", exist_ok=True)
     
     # Convert to numpy arrays to better handle dimensions
     runs_test_accuracy = np.array(runs_test_accuracy)
@@ -112,6 +113,7 @@ def save_results_to_csv(runs_test_accuracy, runs_backdoor_success, test_iteratio
     
     # Save test accuracy
     test_acc_df = pd.DataFrame(runs_test_accuracy, columns=column_names)
+    test_acc_df.to_csv(f"results3rdOct/accuracy_dataset-{args.dataset}_nworkers-{args.nworkers}_group_size-{args.group_size}_aggregation-{args.aggregation}_byz_type-{args.byz_type}_nbyz-{args.nbyz}_bias-{args.bias}.csv", index=False)
 
     # Save backdoor success rate if available
     if args.byz_type == "scaling_attack":
