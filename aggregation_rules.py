@@ -1492,7 +1492,7 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
         records.append(record)
     # save to csv in append mode (keep original path)
     df = pd.DataFrame(records)
-    DIR = r"M:\PythonTests\newSafeFL\SAFEFL\score_function_viz\observation_scores.csv"
+    DIR = os.path.join(os.path.dirname(__file__), "score_function_viz", "observation_scores.csv")
     df.to_csv(DIR, mode="a", header=False, index=False)
     print(f"skipped factor percentage: {bayesian_params['skippedFactorsCount'] / total_factors}")
     print(f'Percentage of groups (out of {len(weights)}) that were skipped ({skippedGroups}): {skippedGroups / len(weights)}')

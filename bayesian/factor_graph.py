@@ -4,6 +4,7 @@ from pgmax.factor import EnumFactor
 from itertools import product
 from pgmax.infer import BP, get_marginals
 import numpy as np
+import os
 from .components import observation_function, expectation_function, likelihood_function
 
 
@@ -75,7 +76,7 @@ def _maybe_init_bayesian_and_csv(bayesian_params, num_nodes):
         
         bayesian_params["graph"] = graph
         bayesian_params["variables"] = variables # Store variables for easy access
-        DIR = r'M:\PythonTests\newSafeFL\SAFEFL\score_function_viz\observation_scores.csv'
+        DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "score_function_viz", "observation_scores.csv")
 
         meta = bayesian_params['meta_data']
         dataset_name = meta['dataset']
