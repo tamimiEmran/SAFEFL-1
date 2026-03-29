@@ -185,6 +185,9 @@ if __name__ == "__main__":
     parser.add_argument("--filter", type=str, default=None,
                         help="Comma-separated terms to filter experiments (AND logic). "
                              "E.g. --filter 'FEMNIST,krum' runs only FEMNIST+krum experiments.")
+    parser.add_argument("--baselines", action="store_true",
+                        help="Run only baseline experiments: no attack, no grouping, no factorGraphs. "
+                             "Tests that all models/datasets/defences converge properly.")
     args = parser.parse_args()
 
     # Ensure output directories exist
@@ -193,13 +196,21 @@ if __name__ == "__main__":
 
     experiments = generate_experiments(args.gpu)
 
+    # Baselines: no attack, no grouping, no factorGraphs
+    if args.baselines:
+        experiments = [(cmd, desc) for cmd, desc in experiments
+                       if "| no |" in desc                    # no attack
+                       and "factorGraphs" not in desc          # exclude factorGraphs
+                       and "gs=" not in desc]                  # exclude grouped runs
+
     # Apply filter if provided
     if args.filter:
         terms = [t.strip().lower() for t in args.filter.split(",")]
         experiments = [(cmd, desc) for cmd, desc in experiments
                        if all(t in desc.lower() for t in terms)]
-        if not experiments:
-            print(f"No experiments match filter: {args.filter}")
-            sys.exit(0)
+
+    if not experiments:
+        print(f"No experiments match the given flags.")
+        sys.exit(0)
 
     run_sweep(experiments, dry=args.dry)
