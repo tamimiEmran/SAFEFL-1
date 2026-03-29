@@ -225,7 +225,7 @@ def parse_args():
     parser.add_argument("--seed", help="seed", type=int, default=1)
     parser.add_argument("--nruns", help="number of runs for averaging accuracy", type=int, default=1)
     parser.add_argument("--test_every", help="testing interval", type=int, default=5)
-    parser.add_argument("--isGrouped", help="is grouped", type=bool, default=False)
+    parser.add_argument("--isGrouped", help="is grouped", type=str, default="False")
 
     ### Aggregations
     parser.add_argument("--aggregation", help="aggregation", type=str, default="fedavg")
@@ -596,7 +596,7 @@ def main(args):
     The main function that runs the entire training process of the model.
     args: arguments defining hyperparameters
     """
-    if args.isGrouped:
+    if args.isGrouped.lower() == "true":
         group_size = args.group_size
     else:
         group_size = 0
