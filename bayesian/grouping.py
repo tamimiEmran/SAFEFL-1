@@ -494,7 +494,7 @@ def _group_and_sum_gradients(param_list, bayesian_params):
             strategy = "greedy"
         else:
             strategy = "by_maliciousness"
-    if bayesian_params.get("shuffling_strategy", "random") == 'mixed_optimal':
+    elif bayesian_params.get("shuffling_strategy", "random") == 'mixed_optimal':
         if bayesian_params.get("current_round", 0) <= bayesian_params.get("mixing_rounds", 100):
             strategy = "cyclic"
 
@@ -505,24 +505,21 @@ def _group_and_sum_gradients(param_list, bayesian_params):
 
         strategy = bayesian_params.get("shuffling_strategy", "random")
 
+    # Build id->gradient mapping, preserving original user IDs
+    gradients_included = {id: grad for id, grad in enumerate(param_list)}
+
     if bayesian_params.get("excludeHighProbUsers", True):
         if bayesian_params.get("current_round", 0) > bayesian_params.get("mixing_rounds", 100):
             latent_variables = bayesian_params.get("latent_variables", {})
             threshold = bayesian_params.get("excludeThreshold", 0.9)
-            temp_param_list = [param for id, param in enumerate(param_list) if latent_variables.get(id) < threshold]
-            if len(temp_param_list) == 0:
-                temp_param_list = param_list  # if all users are excluded, include all
-            else: 
-                #print(f"Excluding {len(param_list) - len(temp_param_list)} users with high fault probability")
-                param_list = temp_param_list
-
-
-
-    
+            filtered = {id: grad for id, grad in gradients_included.items() if latent_variables.get(id) < threshold}
+            if len(filtered) > 0:
+                #print(f"Excluding {len(gradients_included) - len(filtered)} users with high fault probability")
+                gradients_included = filtered
+            # if all users are excluded, keep gradients_included as-is
 
     if strategy == "random":
         # users included
-        gradients_included = {id: grad for id, grad in enumerate(param_list)}
 
         # shuffle IDs
         shuffled_ids = list(gradients_included.keys())
@@ -555,8 +552,6 @@ def _group_and_sum_gradients(param_list, bayesian_params):
             group_gradients[gid]  = torch.sum(torch.stack(gradients_to_be_summed), dim=0)
 
     elif strategy  == "by_maliciousness":
-        # users included
-        gradients_included = {id: grad for id, grad in enumerate(param_list)}
         # sort by maliciousness
         latent_variables = bayesian_params.get("latent_variables", {})
         sorted_ids = sorted(gradients_included.keys(), key=lambda x: latent_variables.get(x, 0.5))
@@ -616,13 +611,10 @@ def _group_and_sum_gradients(param_list, bayesian_params):
         group_gradients = {}
         for gid, (_, indices) in groups.items():
             # compute global model update
-            gradients_to_be_summed = [param_list[idx] for idx in indices]
+            gradients_to_be_summed = [gradients_included[idx] for idx in indices]
             group_gradients[gid]  = torch.sum(torch.stack(gradients_to_be_summed), dim=0)
 
     elif strategy == "prob_by_maliciousness":
-        # users included
-        gradients_included = {id: grad for id, grad in enumerate(param_list)}
-
         latent_variables = bayesian_params.get("latent_variables", {})
         temperature = bayesian_params.get("prob_sort_temp", 0.2)  # controls randomness
 
@@ -683,7 +675,7 @@ def _group_and_sum_gradients(param_list, bayesian_params):
         # Extract group gradients
         group_gradients = {}
         for gid, (_, indices) in groups.items():
-            grads = [param_list[idx] for idx in indices]
+            grads = [gradients_included[idx] for idx in indices]
             group_gradients[gid] = torch.sum(torch.stack(grads), dim=0)
 
     elif strategy == "cyclic":
@@ -714,7 +706,7 @@ def _group_and_sum_gradients(param_list, bayesian_params):
         # Sum gradients per group
         group_gradients = {}
         for gid, (_, indices) in groups.items():
-            gradients_to_be_summed = [param_list[idx] for idx in indices]
+            gradients_to_be_summed = [gradients_included[idx] for idx in indices]
             group_gradients[gid] = torch.sum(torch.stack(gradients_to_be_summed), dim=0)
 
 
@@ -734,7 +726,7 @@ def _SG_group_and_sum_gradients(param_list, bayesian_params):
 
     sg_aggregators_len = bayesian_params.get('sg_aggregators_len', 20)
     n = len(param_list)
-    seed = bayesian_params.get('seed', 47)
+    # seed = bayesian_params.get('seed', 47 + round_id) # commented out until function passes round_id
     rng = random.Random(seed)
     indices = list(range(n))
     rng.shuffle(indices)

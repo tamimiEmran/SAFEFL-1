@@ -55,13 +55,15 @@ random.seed(42)
 np.random.seed(42)
 torch.manual_seed(42)
 torch.cuda.manual_seed(42)
-def groupParams(param_list, group_size, isFactorGraph = False):
-    if "__round_id__" not in groupParams.__dict__:
-        groupParams.__dict__["__round_id__"] = 0
-    else:
-        groupParams.__dict__["__round_id__"] += 1
+def groupParams(param_list, group_size, isFactorGraph = False, round_id = None):
+    if round_id is None:
+        if "__round_id__" not in groupParams.__dict__:
+            groupParams.__dict__["__round_id__"] = 0
+        else:
+            groupParams.__dict__["__round_id__"] += 1
+        round_id = groupParams.__dict__["__round_id__"]
 
-    
+
     COMPARE_WITH = param_list[0].clone().shape
     param_list = [p.clone() for p in param_list]
         # users included
@@ -69,7 +71,7 @@ def groupParams(param_list, group_size, isFactorGraph = False):
 
     # shuffle IDs
     shuffled_ids = list(gradients_included.keys())
-    random.seed(42 + groupParams.__dict__["__round_id__"])
+    random.seed(42 + round_id)
     random.shuffle(shuffled_ids)
     gradients_included = {id: gradients_included[id] for id in shuffled_ids}
 
@@ -443,6 +445,7 @@ def shieldfl(gradients, net, lr, f, byz, device, previous_gloabl_gradient, itera
     kappa = 0  # the paper gave no indication on how to set this parameter
 
     param_list = [torch.cat([xx.reshape((-1, 1)) for xx in x], dim=0) for x in gradients]
+    assumedPct = f / len(param_list)
     # let the malicious clients (first f clients) perform the byzantine attack
     if byz == attacks.fltrust_attack:
         param_list = byz(param_list, net, lr, f, device)[:-1]
@@ -451,6 +454,7 @@ def shieldfl(gradients, net, lr, f, byz, device, previous_gloabl_gradient, itera
 
     if group_size > 0:
         _, param_list = groupParams(param_list, group_size)
+        f = math.floor(assumedPct * len(param_list))
     n = len(param_list)
 
     # gradient normalization
@@ -1466,6 +1470,10 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
     for gid, score in observed_scores.items():
         indices = groups[gid][1]
         numberOfMal = sum([1 for idx in indices if idx < f])
+        # Build filtered lists that preserve the original idx
+        normal_pairs = [(idx, anomalyScore) for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx >= f]
+        mal_pairs    = [(idx, anomalyScore) for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx < f]
+
         record = {
             "round_id": round_id,
             "group_id": gid,
@@ -1475,8 +1483,8 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
             'avgNormScore': np.mean([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx >= f]),
             'minMalScore': np.min([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx < f]),
             'maxNormScore': np.max([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx >= f]),
-            'idxOfMaxNormScore': np.argmax([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx >= f]) ,
-            'idxOfMinMalScore': np.argmin([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx < f]),
+            'idxOfMaxNormScore': max(normal_pairs, key=lambda x: x[1])[0] if normal_pairs else None,
+            'idxOfMinMalScore':  min(mal_pairs,    key=lambda x: x[1])[0] if mal_pairs else None,
         }
         # add meta data to record
         record.update(meta_record)
@@ -1510,7 +1518,7 @@ def factorGraphs(gradients, net, lr, f, byz, device, bayesian_params):
     else:
         #for benchmarking use 
         group_size = bayesian_params.get("group_size", 2)
-        groups, group_gradients = groupParams(param_list, group_size, isFactorGraph = True)
+        groups, group_gradients = groupParams(param_list, group_size, isFactorGraph = True, round_id = round_id)
         #groups, group_gradients = _group_and_sum_gradients(param_list, bayesian_params)
     # Stage 4: inference, logging, and model update
     bayesian_params = _run_inference_and_update(
