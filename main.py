@@ -18,31 +18,25 @@ print(f"JAX Version: {jax.__version__}")
 # This line will fail if JAX was downgraded by PGMax
 print(f"JAX Devices: {jax.devices()}")
 
-import jax
-# Explicitly import the new backend extension as requested by JAX 0.8+
-if jax.__version__ >= "0.8.0":
+# -------------------------------------------------------------------------
+# COMPATIBILITY SHIM: Fix PGMax across JAX versions
+# -------------------------------------------------------------------------
+# PGMax calls the deprecated `jax.lib.xla_bridge.get_backend()`.
+# - JAX <=0.6 (cloud, Python 3.10): API exists natively — no shim needed.
+# - JAX  0.8+ (local, Python 3.11+): API removed — redirect to jax.extend.backend.
+# -------------------------------------------------------------------------
+if not hasattr(jax, 'lib') or not hasattr(getattr(jax, 'lib', None), 'xla_bridge'):
     import jax.extend.backend
-
-# -------------------------------------------------------------------------
-# COMPATIBILITY SHIM: Fix PGMax for JAX 0.8+ / RTX 5090
-# -------------------------------------------------------------------------
-# PGMax tries to call the deprecated `jax.lib.xla_bridge.get_backend()`.
-# We intercept this call and redirect it to the new `jax.extend.backend`.
-# -------------------------------------------------------------------------
-
-# 1. Ensure jax.lib exists (it might be missing in 0.8+)
-if not hasattr(jax, 'lib'):
     import types
-    jax.lib = types.ModuleType('jax.lib')
+    if not hasattr(jax, 'lib'):
+        jax.lib = types.ModuleType('jax.lib')
 
-# 2. Create a fake "xla_bridge" that mimics the old API
-class ShimXLABridge:
-    @staticmethod
-    def get_backend():
-        return jax.extend.backend.get_backend()
+    class _ShimXLABridge:
+        @staticmethod
+        def get_backend():
+            return jax.extend.backend.get_backend()
 
-# 3. Force-overwrite the deprecated module with our shim
-jax.lib.xla_bridge = ShimXLABridge
+    jax.lib.xla_bridge = _ShimXLABridge
 
 import aggregation_rules
 import numpy as np

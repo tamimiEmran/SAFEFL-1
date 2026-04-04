@@ -56,8 +56,11 @@ def setup():
         run(f"cd {REPO_DIR} && git checkout {BRANCH}")
 
     print("\n=== SETUP: Installing dependencies ===")
+    # Cloud VM: Python 3.10, CUDA 12.4, cuDNN 9.1 (H100)
+    # JAX 0.7+ requires Python 3.11, so we are pinned to 0.6.2
     run("pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124")
-    run("pip install jax[cuda12] -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html")
+    run("pip install jax==0.6.2 jaxlib==0.6.2 jax-cuda12-plugin==0.6.2 jax-cuda12-pjrt==0.6.2")
+    run("pip install nvidia-cudnn-cu12==9.8.0.87")  # match version expected by jaxlib
     run("pip install pgmax scikit-learn hdbscan scipy matplotlib pandas tqdm")
 
     # Ensure output dirs exist
