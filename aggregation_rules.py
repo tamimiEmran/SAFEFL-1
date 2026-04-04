@@ -104,7 +104,6 @@ def groupParams(param_list, group_size, isFactorGraph = False, round_id = None):
     else:
         return groups, [group_gradients[gid] for gid in group_gradients.keys()]
 
-from pyds import MassFunction
 import torch
 
 

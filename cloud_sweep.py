@@ -58,7 +58,7 @@ def setup():
     print("\n=== SETUP: Installing dependencies ===")
     run("pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124")
     run("pip install jax[cuda12] -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html")
-    run("pip install pgmax scikit-learn hdbscan scipy matplotlib pandas tqdm pyds")
+    run("pip install pgmax scikit-learn hdbscan scipy matplotlib pandas tqdm")
 
     # Ensure output dirs exist
     run(f"mkdir -p {REPO_DIR}/score_function_viz")

@@ -1,0 +1,14 @@
+torch>=2.0.0
+torchvision
+numpy
+scipy
+scikit-learn
+matplotlib
+seaborn
+pandas
+datasets
+Pillow
+tqdm
+hdbscan
+jax
+pgmax
