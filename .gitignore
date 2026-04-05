@@ -147,13 +147,16 @@ mp-spdz-0.3.2.tar.xz
 !mpspdz/Programs/Source/mpc_fltrust_server.mpc
 !mpspdz/Programs/Source/mpc_fedavg_server.mpc
 **/.claude/settings.local.json
-# RSULTS
-results/*.csv
-results/*.txt
-results/hierarchical/*.csv
 
-score_function_viz/*.csv
+# Archive of old results, figures, and scripts
+archive/
+
+# Active output directories (created by experiments)
+results/
+finalResults/
+score_function_viz/
 figures/
-data/
-/results3rdOct
 *.pdf
+
+# Datasets
+data/
