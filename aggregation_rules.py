@@ -12,7 +12,6 @@ from sklearn.cluster import KMeans
 import hdbscan
 import copy
 import utils
-import heirichalFL as hfl
 from scipy.stats import norm
 from sklearn.decomposition import PCA
 from bayesian.components import signguard_individual, DNC_individual
