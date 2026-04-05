@@ -4,7 +4,6 @@ from pgmax.factor import EnumFactor
 from itertools import product
 from pgmax.infer import BP, get_marginals
 import numpy as np
-import os
 from .components import observation_function, expectation_function, likelihood_function
 
 
@@ -60,35 +59,19 @@ def factor_graph_marginals(gradients, factor_graph_params):
     return marginals
 
 
-import pandas as pd
 def _maybe_init_bayesian_and_csv(bayesian_params, num_nodes):
-    # get round_id 
     round_id = bayesian_params.get("current_round", 0)
     if round_id == 0:
-        # first round, initialize grouping
         INITIAL_THRESHOLD = bayesian_params.get("initial_threshold", 0.5)
         bayesian_params["latent_variables"] = {id: INITIAL_THRESHOLD for id in range(num_nodes)}
-        
-        variables = vgroup.NDVarArray(num_states=2, shape=(num_nodes,))  # Each node can be either faulty (1) or not faulty (0)
-        graph = fgraph.FactorGraph(
-            variable_groups= [variables]
-        )
-        
-        bayesian_params["graph"] = graph
-        bayesian_params["variables"] = variables # Store variables for easy access
-        DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "score_function_viz", "observation_scores.csv")
 
-        meta = bayesian_params['meta_data']
-        dataset_name = meta['dataset']
-        byz_type = meta['attack_type']
-        n_byzantine = meta['n_byzantine']
-        bias = meta['bias']
-        n_workers = meta['n_workers']
-        # initialize csv (keep original path & spelling)
-        pd.DataFrame(columns=["round_id", "group_id", "numberOfMal", "score", 'avgMalScore', 'avgNormScore', 'minMalScore', 'maxNormScore', 
-                              'idxOfMaxNormScore', 'idxOfMinNormScore', 'dataset', 'attack_type', 'n_byzantine', 'bias', 'n_workers']).to_csv(
-            DIR, index=False
+        variables = vgroup.NDVarArray(num_states=2, shape=(num_nodes,))
+        graph = fgraph.FactorGraph(
+            variable_groups=[variables]
         )
+
+        bayesian_params["graph"] = graph
+        bayesian_params["variables"] = variables
 
     graph = bayesian_params["graph"]
     variables = bayesian_params["variables"]

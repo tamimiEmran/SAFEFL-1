@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920">
+  <title>FactorGraphs &mdash; Experiment Plan</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #F8F9FB;
+      --bg-card: #FFFFFF;
+      --bg-elevated: #F0F1F4;
+      --border: #E0E2E8;
+      --text: #1A1D26;
+      --text-dim: #5A5E6E;
+      --text-muted: #8E92A0;
+      --accent: #0E9A7E;
+      --accent-dim: rgba(14, 154, 126, 0.08);
+      --red: #D9453E;
+      --red-dim: rgba(217, 69, 62, 0.07);
+      --blue: #3B6FD6;
+      --blue-dim: rgba(59, 111, 214, 0.08);
+      --purple: #8B5CC4;
+      --purple-dim: rgba(139, 92, 196, 0.08);
+      --amber: #C88A1A;
+      --amber-dim: rgba(200, 138, 26, 0.08);
+      --teal: #0A7C8C;
+      --teal-dim: rgba(10, 124, 140, 0.08);
+      --font: 'DM Sans', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 48px 64px;
+    }
+
+    /* === Page Header === */
+    .page-header { margin-bottom: 48px; }
+    .page-header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 6px; }
+    .page-header p { font-size: 14px; color: var(--text-dim); }
+
+    /* === Sections === */
+    .section { margin-bottom: 56px; }
+    .section-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 6px; }
+    .section-subtitle { font-size: 14px; color: var(--text-dim); margin-bottom: 28px; }
+
+    /* === Cards === */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .card + .card { margin-top: 16px; }
+
+    /* === Summary Cards === */
+    .summary-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+    .summary-card { border-radius: 8px; padding: 20px; text-align: center; }
+    .summary-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); color: var(--text-dim); }
+    .summary-card .value { font-size: 36px; font-weight: 700; font-family: var(--mono); }
+    .summary-card .detail { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+    /* === Data Table === */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    .data-table th { text-align: left; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    .data-table td { padding: 10px 14px; color: var(--text-dim); border-bottom: 1px solid var(--border); }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table .num { font-family: var(--mono); font-size: 13px; }
+    .data-table .pos { color: var(--accent); }
+    .data-table .neg { color: var(--red); }
+    .data-table .blue-text { color: var(--blue); }
+    .data-table .amber-text { color: var(--amber); }
+    .data-table .purple-text { color: var(--purple); }
+    .data-table .teal-text { color: var(--teal); }
+
+    /* === Phase Card === */
+    .phase-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 28px 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+      margin-bottom: 20px;
+      position: relative;
+    }
+    .phase-card .phase-badge {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+    .phase-card .phase-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 4px;
+    }
+    .phase-card .phase-question {
+      font-size: 15px;
+      color: var(--text-dim);
+      font-style: italic;
+      margin-bottom: 16px;
+      padding-left: 14px;
+      border-left: 3px solid var(--border);
+    }
+    .phase-card .phase-body { font-size: 14px; color: var(--text-dim); line-height: 1.65; }
+    .phase-card .phase-body strong { color: var(--text); font-weight: 600; }
+    .phase-card .phase-body ul { padding-left: 20px; margin: 8px 0; }
+    .phase-card .phase-body li { margin-bottom: 4px; }
+
+    .phase-card .phase-meta {
+      display: flex;
+      gap: 24px;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .phase-card .phase-meta .meta-value { font-weight: 600; color: var(--text); }
+
+    .phase-card .outcome-box {
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      margin-top: 14px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    .phase-card .outcome-box .outcome-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    /* badge colors */
+    .badge-anchor   { background: var(--accent-dim); color: var(--accent); }
+    .badge-problem  { background: var(--red-dim); color: var(--red); }
+    .badge-solution { background: var(--blue-dim); color: var(--blue); }
+    .badge-robust   { background: var(--purple-dim); color: var(--purple); }
+    .badge-general  { background: var(--amber-dim); color: var(--amber); }
+    .badge-ablation { background: rgba(90,94,110,0.08); color: var(--text-dim); }
+    .badge-arch     { background: var(--teal-dim); color: var(--teal); }
+
+    /* === Variable Grid === */
+    .var-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .var-item {
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+    }
+    .var-item .var-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .var-item .var-values {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .var-tag {
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+
+    /* === Flow Arrow === */
+    .flow-connector {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 0;
+      color: var(--text-muted);
+    }
+    .flow-connector svg { width: 20px; height: 20px; }
+
+    /* === Bar Charts (horizontal) === */
+    .bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .bar-label { width: 120px; text-align: right; font-family: var(--mono); font-size: 13px; color: var(--text-dim); flex-shrink: 0; }
+    .bar-track { flex: 1; display: flex; height: 24px; border-radius: 4px; overflow: hidden; background: var(--bg-elevated); }
+    .bar-fill { height: 100%; transition: width 0.3s ease; border-radius: 4px; }
+
+    /* === TOC Nav === */
+    .toc {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 40px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .toc-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    .toc-items { display: flex; flex-wrap: wrap; gap: 8px; }
+    .toc-items a {
+      font-size: 13px;
+      color: var(--text-dim);
+      text-decoration: none;
+      padding: 5px 14px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-elevated);
+      transition: all 0.15s ease;
+    }
+    .toc-items a:hover { background: var(--accent-dim); color: var(--accent); }
+
+    /* === Dependency line === */
+    .dep-tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      background: var(--amber-dim);
+      color: var(--amber);
+    }
+
+    /* === Heatmap Grid === */
+    .heatmap-grid {
+      display: grid;
+      gap: 2px;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .heatmap-cell {
+      padding: 8px 6px;
+      text-align: center;
+      border-radius: 3px;
+    }
+    .heatmap-header {
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* === Print === */
+    @media print {
+      body { padding: 24px; }
+      .phase-card { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============ HEADER ============ -->
+  <div class="page-header">
+    <h1>FactorGraphs &mdash; Experiment Plan</h1>
+    <p>Question-driven experimental design &middot; Generated 2026-04-04 &middot; Byzantine Detection over Secure Aggregates</p>
+  </div>
+
+  <!-- ============ TOC ============ -->
+  <div class="toc">
+    <div class="toc-title">Jump to Section</div>
+    <div class="toc-items">
+      <a href="#overview">Overview</a>
+      <a href="#variables">Variable Space</a>
+      <a href="#phases">Experiment Phases</a>
+      <a href="#sensitivity">Sensitivity Grid</a>
+      <a href="#budget">Run Budget</a>
+      <a href="#flow">Dependency Flow</a>
+      <a href="#mapping">Paper Mapping</a>
+    </div>
+  </div>
+
+  <!-- ============ OVERVIEW ============ -->
+  <div class="section" id="overview">
+    <div class="section-title">Overview</div>
+    <div class="section-subtitle">Why a structured plan instead of a full sweep</div>
+
+    <div class="summary-cards">
+      <div class="summary-card card">
+        <div class="label">Full Sweep</div>
+        <div class="value" style="color: var(--red);">6,750</div>
+        <div class="detail">configurations (not feasible)</div>
+      </div>
+      <div class="summary-card card">
+        <div class="label">Planned Runs</div>
+        <div class="value" style="color: var(--accent);">~86</div>
+        <div class="detail">question-driven experiments</div>
+      </div>
+      <div class="summary-card card">
+        <div class="label">Phases</div>
+        <div class="value" style="color: var(--blue);">8</div>
+        <div class="detail">sequential, with early narrowing</div>
+      </div>
+      <div class="summary-card card">
+        <div class="label">Paper Artifacts</div>
+        <div class="value" style="color: var(--purple);">8</div>
+        <div class="detail">tables &amp; figures to fill</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p style="font-size: 14px; color: var(--text-dim); line-height: 1.7;">
+        <strong style="color: var(--text);">Strategy:</strong> Each experiment phase answers exactly one research question. Early phases narrow down datasets and architectures,
+        so later phases don't need a full sweep. If a surprise emerges (e.g., a baseline doesn't collapse as expected), the plan pivots
+        before burning more compute. Every phase produces a self-contained result that maps to a specific table or figure in the paper.
+      </p>
+      <p style="font-size: 14px; color: var(--text-dim); line-height: 1.7; margin-top: 8px;">
+        <strong style="color: var(--text);">Full sweep math:</strong>
+        <span style="font-family: var(--mono); font-size: 13px;">3 datasets &times; 3 archs &times; 5 &beta; &times; 2 attacks &times; 5 methods &times; 5 grouping &times; 3 nbyz = 6,750</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- ============ VARIABLE SPACE ============ -->
+  <div class="section" id="variables">
+    <div class="section-title">Variable Space</div>
+    <div class="section-subtitle">All experimental dimensions &mdash; a full cross-product is 6,750 configurations</div>
+
+    <div class="card">
+      <div class="var-grid">
+        <div class="var-item">
+          <div class="var-label">Datasets</div>
+          <div class="var-values">
+            <span class="var-tag">MNIST</span>
+            <span class="var-tag">FEMNIST</span>
+            <span class="var-tag">CIFAR-10</span>
+          </div>
+        </div>
+        <div class="var-item">
+          <div class="var-label">Architectures</div>
+          <div class="var-values">
+            <span class="var-tag">MobileNetV3</span>
+            <span class="var-tag">ResNet-18</span>
+            <span class="var-tag">EfficientNet</span>
+          </div>
+        </div>
+        <div class="var-item">
+          <div class="var-label">IID Setting (&beta;)</div>
+          <div class="var-values">
+            <span class="var-tag">0 (IID)</span>
+            <span class="var-tag">0.25</span>
+            <span class="var-tag">0.50</span>
+            <span class="var-tag">0.75</span>
+            <span class="var-tag">1.0</span>
+          </div>
+        </div>
+        <div class="var-item">
+          <div class="var-label">Attacks</div>
+          <div class="var-values">
+            <span class="var-tag">Label Flipping</span>
+            <span class="var-tag">Scaling Backdoor</span>
+          </div>
+        </div>
+        <div class="var-item">
+          <div class="var-label">Defenses</div>
+          <div class="var-values">
+            <span class="var-tag">FedAvg</span>
+            <span class="var-tag">Krum</span>
+            <span class="var-tag">ShieldFL</span>
+            <span class="var-tag">SignGuard</span>
+            <span class="var-tag" style="border-color: var(--accent); color: var(--accent);">FactorGraphs</span>
+          </div>
+        </div>
+        <div class="var-item">
+          <div class="var-label">Group Sizes (k)</div>
+          <div class="var-values">
+            <span class="var-tag">5</span>
+            <span class="var-tag">10</span>
+            <span class="var-tag">20</span>
+            <span class="var-tag">30</span>
+            <span class="var-tag" style="color: var(--text-muted);">+ Non-Grouped</span>
+          </div>
+        </div>
+        <div class="var-item">
+          <div class="var-label">Byzantine Clients (nbyz)</div>
+          <div class="var-values">
+            <span class="var-tag">10 (5%)</span>
+            <span class="var-tag">20 (10%)</span>
+            <span class="var-tag">30 (15%)</span>
+          </div>
+        </div>
+        <div class="var-item">
+          <div class="var-label">Metrics</div>
+          <div class="var-values">
+            <span class="var-tag">Main Accuracy</span>
+            <span class="var-tag">Backdoor ASR</span>
+            <span class="var-tag">Detection Latency</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ EXPERIMENT PHASES ============ -->
+  <div class="section" id="phases">
+    <div class="section-title">Experiment Phases</div>
+    <div class="section-subtitle">Sequential phases &mdash; each answers one question, early results narrow later experiments</div>
+
+    <!-- Phase 0 -->
+    <div class="phase-card" style="padding-bottom: 0;">
+      <span class="phase-badge badge-anchor">Phase 0</span>
+      <div class="phase-title">Baseline Landscape: Dataset &times; Architecture Selection</div>
+      <div class="phase-question">Which dataset-architecture pair produces the most meaningful experimental testbed?</div>
+
+      <!-- Visual flow: What → How → Decide -->
+      <div style="display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 0; margin: 20px 0 24px; text-align: center;">
+        <div style="background: var(--accent-dim); border-radius: var(--radius-sm); padding: 14px 12px;">
+          <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); font-weight: 600;">Run</div>
+          <div style="font-size: 13px; color: var(--text); margin-top: 4px; font-weight: 500;">18 experiments</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">FedAvg only, no defense</div>
+        </div>
+        <div style="color: var(--text-muted); padding: 0 8px; font-size: 18px;">&rarr;</div>
+        <div style="background: var(--blue-dim); border-radius: var(--radius-sm); padding: 14px 12px;">
+          <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--blue); font-weight: 600;">Measure</div>
+          <div style="font-size: 13px; color: var(--text); margin-top: 4px; font-weight: 500;">ACC + Attack &Delta;</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Per dataset-arch combo</div>
+        </div>
+        <div style="color: var(--text-muted); padding: 0 8px; font-size: 18px;">&rarr;</div>
+        <div style="background: var(--purple-dim); border-radius: var(--radius-sm); padding: 14px 12px;">
+          <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--purple); font-weight: 600;">Pick</div>
+          <div style="font-size: 13px; color: var(--text); margin-top: 4px; font-weight: 500;">Anchor combo</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Data-driven, not assumed</div>
+        </div>
+      </div>
+
+      <!-- Run Matrix: visual grid -->
+      <div style="margin-bottom: 20px;">
+        <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 10px;">Run Matrix &mdash; 9 combos &times; 2 scenarios = 18 runs</div>
+        <div style="display: grid; grid-template-columns: 100px repeat(3, 1fr); gap: 4px;">
+          <!-- Header row -->
+          <div></div>
+          <div style="text-align: center; font-family: var(--mono); font-size: 11px; color: var(--text-muted); padding: 6px; font-weight: 600;">MobileNetV3</div>
+          <div style="text-align: center; font-family: var(--mono); font-size: 11px; color: var(--text-muted); padding: 6px; font-weight: 600;">ResNet-18</div>
+          <div style="text-align: center; font-family: var(--mono); font-size: 11px; color: var(--text-muted); padding: 6px; font-weight: 600;">EfficientNet</div>
+          <!-- MNIST row -->
+          <div style="font-size: 13px; font-weight: 600; padding: 10px 8px; display: flex; align-items: center;">MNIST</div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center;">
+            <div style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">__%</div>
+            <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; __%</div>
+          </div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center;">
+            <div style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">__%</div>
+            <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; __%</div>
+          </div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center;">
+            <div style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">__%</div>
+            <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; __%</div>
+          </div>
+          <!-- FEMNIST row -->
+          <div style="font-size: 13px; font-weight: 600; padding: 10px 8px; display: flex; align-items: center;">FEMNIST</div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center;">
+            <div style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">__%</div>
+            <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; __%</div>
+          </div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center;">
+            <div style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">__%</div>
+            <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; __%</div>
+          </div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center;">
+            <div style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">__%</div>
+            <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; __%</div>
+          </div>
+          <!-- CIFAR-10 row -->
+          <div style="font-size: 13px; font-weight: 600; padding: 10px 8px; display: flex; align-items: center;">CIFAR-10</div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center;">
+            <div style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">__%</div>
+            <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; __%</div>
+          </div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center;">
+            <div style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">__%</div>
+            <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; __%</div>
+          </div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center;">
+            <div style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">__%</div>
+            <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; __%</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 16px; margin-top: 8px; font-family: var(--mono); font-size: 11px; color: var(--text-muted);">
+          <span>ACC = clean accuracy (No Attack)</span>
+          <span>&Delta; = accuracy drop under Label Flipping</span>
+          <span>Fixed: &beta;=0, k=10, nbyz=20</span>
+        </div>
+      </div>
+
+      <!-- Selection Criteria: 3 visual cards -->
+      <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 10px;">Selection Criteria &mdash; pick the combo that passes all three</div>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
+        <div style="border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; text-align: center;">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"><path d="M12 20V4M4 12l8-8 8 8"/></svg>
+          </div>
+          <div style="font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px;">Meaningful Accuracy</div>
+          <div style="font-size: 12px; color: var(--text-dim); line-height: 1.5;">Not trivially high (99%+ hides attack signal) or too low (model doesn't learn).</div>
+        </div>
+        <div style="border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; text-align: center;">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--red-dim); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"><path d="M12 4v16M4 12l8 8 8-8"/></svg>
+          </div>
+          <div style="font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px;">Meaningful Attack &Delta;</div>
+          <div style="font-size: 12px; color: var(--text-dim); line-height: 1.5;">Label Flipping must cause a real accuracy drop. If &Delta; &asymp; 0, the dataset is too easy for defense evaluation.</div>
+        </div>
+        <div style="border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; text-align: center;">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--blue-dim); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <div style="font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px;">Practical Convergence</div>
+          <div style="font-size: 12px; color: var(--text-dim); line-height: 1.5;">Training must stabilize in a reasonable number of rounds. Slow combos waste compute in all later phases.</div>
+        </div>
+      </div>
+
+      <!-- Elimination examples -->
+      <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px;">Also eliminates bad combos</div>
+      <div style="display: flex; gap: 10px; margin-bottom: 24px;">
+        <div style="flex: 1; background: var(--red-dim); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px;">
+          <span style="color: var(--red); font-weight: 600;">ResNet-18 + MNIST</span>
+          <span style="color: var(--text-dim);"> &mdash; likely overkill, overfits quickly, no attack signal to study</span>
+        </div>
+        <div style="flex: 1; background: var(--red-dim); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px;">
+          <span style="color: var(--red); font-weight: 600;">MobileNetV3 + CIFAR-10</span>
+          <span style="color: var(--text-dim);"> &mdash; may underfit, too weak for the task complexity</span>
+        </div>
+      </div>
+
+      <div class="phase-meta" style="margin-top: 0; padding-top: 14px; margin-bottom: 24px;">
+        <div>Runs: <span class="meta-value">18</span></div>
+        <div>Dependencies: <span class="meta-value">None</span></div>
+        <div>Fills: <span class="meta-value">Baseline Landscape table (new paper artifact)</span></div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M6 12l4 4 4-4"/></svg>
+    </div>
+
+    <!-- Phase 1 -->
+    <div class="phase-card">
+      <span class="phase-badge badge-problem">Phase 1</span>
+      <div class="phase-title">Establish the Problem: Grouping Failure</div>
+      <div class="phase-question">Do standard defenses collapse when forced to operate on secure groups?</div>
+      <div class="phase-body">
+        <p>This is the <strong>motivating experiment</strong> &mdash; the entire paper's premise rests on this result. It must be airtight.</p>
+        <ul>
+          <li>4 baselines (FedAvg, Krum, ShieldFL, SignGuard) &times; 2 modes (Grouped k=10, Non-Grouped)</li>
+          <li>&times; 2 scenarios (No Attack + Label Flipping) &times; FEMNIST</li>
+          <li>Fixed: nbyz=20, &beta;=0</li>
+          <li>= <strong>16 runs</strong></li>
+        </ul>
+        <p><strong>Key claim to validate:</strong> Krum collapses under grouping (91.7% &rarr; 22.4% on MNIST suggests similar on FEMNIST). If ShieldFL or SignGuard also collapse, simplify later comparisons by dropping them.</p>
+      </div>
+      <div class="outcome-box">
+        <div class="outcome-label">Outcome</div>
+        Fills <strong>Table 1</strong> (Grouping Impact &Delta;) and <strong>Fig. 1</strong> (accuracy curves). Identifies which baselines survive grouping.
+      </div>
+      <div class="phase-meta">
+        <div>Runs: <span class="meta-value">16</span></div>
+        <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 0</span></span></div>
+        <div>Fills: <span class="meta-value">Table 1 + Fig. 1</span></div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M6 12l4 4 4-4"/></svg>
+    </div>
+
+    <!-- Phase 2 -->
+    <div class="phase-card">
+      <span class="phase-badge badge-solution">Phase 2</span>
+      <div class="phase-title">Establish the Solution: Inference Recovery</div>
+      <div class="phase-question">Does FactorGraphs recover plaintext-level accuracy under grouped SA?</div>
+      <div class="phase-body">
+        <p>Run FactorGraphs under the <strong>same grouped conditions</strong> that broke Krum in Phase 1.</p>
+        <ul>
+          <li>FactorGraphs (Grouped, k=10) &times; (No Attack + Label Flipping) &times; FEMNIST &times; &beta;=0</li>
+          <li>Fixed: nbyz=20</li>
+          <li>Compare against Phase 1 results (no new baseline runs needed)</li>
+        </ul>
+        <p><strong>Target:</strong> FactorGraphs accuracy should match the best Non-Grouped baseline (likely SignGuard at ~83.6%).</p>
+      </div>
+      <div class="outcome-box">
+        <div class="outcome-label">Outcome</div>
+        Fills the <strong>XX.X% placeholders</strong> in Table 1 (FactorGraphs row). Core proof that the method works.
+      </div>
+      <div class="phase-meta">
+        <div>Runs: <span class="meta-value">2</span></div>
+        <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 1</span></span></div>
+        <div>Fills: <span class="meta-value">Table 1 (FactorGraphs row)</span></div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M6 12l4 4 4-4"/></svg>
+    </div>
+
+    <!-- Phase 3 -->
+    <div class="phase-card">
+      <span class="phase-badge badge-solution">Phase 3</span>
+      <div class="phase-title">Backdoor Defense Trade-off</div>
+      <div class="phase-question">Can FactorGraphs suppress backdoors without destroying model utility?</div>
+      <div class="phase-body">
+        <p>Switch from Label Flipping to the <strong>Scaling Backdoor attack</strong> (&gamma;=200, target label 7). Measures both ACC and ASR simultaneously.</p>
+        <ul>
+          <li>Scaling Backdoor &times; FEMNIST &times; Grouped (k=10)</li>
+          <li>4 methods: FactorGraphs + FedAvg + Krum + SignGuard</li>
+          <li>Fixed: nbyz=20, &beta;=0</li>
+          <li>Reuse FedAvg/Krum grouped results from Phase 1 if applicable</li>
+        </ul>
+        <p><strong>Ideal result:</strong> FactorGraphs in the bottom-right quadrant (high ACC, low ASR). FedAvg fails on ASR, Krum fails on ACC.</p>
+      </div>
+      <div class="outcome-box">
+        <div class="outcome-label">Outcome</div>
+        Fills <strong>Fig. 2</strong> (ACC vs. ASR scatter plot). Completes the backdoor defense story.
+      </div>
+      <div class="phase-meta">
+        <div>Runs: <span class="meta-value">4</span></div>
+        <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 1</span></span></div>
+        <div>Fills: <span class="meta-value">Fig. 2</span></div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M6 12l4 4 4-4"/></svg>
+    </div>
+
+    <!-- Phase 4 -->
+    <div class="phase-card">
+      <span class="phase-badge badge-robust">Phase 4</span>
+      <div class="phase-title">Non-IID Robustness Sweep</div>
+      <div class="phase-question">How does FactorGraphs perform across the full spectrum of data heterogeneity?</div>
+      <div class="phase-body">
+        <p>Sweep all four non-IID levels: <strong>&beta; &isin; {0.25, 0.5, 0.75, 1.0}</strong>. This validates the CLT-based smoothing claim and maps the degradation curve.</p>
+        <ul>
+          <li>FactorGraphs + FedAvg + best surviving baseline from Phase 1</li>
+          <li>&times; 2 attacks (Label Flipping + Scaling Backdoor)</li>
+          <li>&times; 4 &beta; values &times; FEMNIST</li>
+          <li>Fixed: k=10, nbyz=20</li>
+          <li>= 3 methods &times; 2 attacks &times; 4 &beta; = <strong>24 runs</strong></li>
+        </ul>
+        <p><strong>Key claim:</strong> Distance-based methods (Krum) have high false positive rates under non-IID because benign specialist groups look like outliers. FactorGraphs' temporal tracking resolves this. The full &beta; sweep shows where the crossover happens.</p>
+      </div>
+      <div class="outcome-box">
+        <div class="outcome-label">Outcome</div>
+        Produces a <strong>&beta;-sweep line chart</strong> (ACC vs &beta;) and adds non-IID columns to all tables. Shows the degradation curve and where FactorGraphs' advantage is largest.
+      </div>
+      <div class="phase-meta">
+        <div>Runs: <span class="meta-value">24</span></div>
+        <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 2</span> <span class="dep-tag">Phase 3</span></span></div>
+        <div>Fills: <span class="meta-value">&beta;-sweep figure + non-IID columns</span></div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M6 12l4 4 4-4"/></svg>
+    </div>
+
+    <!-- Phase 5 -->
+    <div class="phase-card">
+      <span class="phase-badge badge-general">Phase 5</span>
+      <div class="phase-title">Generalization: Second Dataset</div>
+      <div class="phase-question">Do the results transfer to a different dataset?</div>
+      <div class="phase-body">
+        <p>Run <strong>only the winning configuration</strong> from Phases 1&ndash;4 on a second dataset. No full baseline sweep &mdash; just enough to confirm the pattern holds.</p>
+        <ul>
+          <li><strong>MNIST</strong> (fast, sanity check) &mdash; FactorGraphs + FedAvg + best baseline</li>
+          <li>Optionally <strong>CIFAR-10 + ResNet-18</strong> if reviewers demand it</li>
+          <li>Grouped (k=10), both attacks, &beta;=0 and one non-IID (&beta;=0.5)</li>
+          <li>Fixed: nbyz=20</li>
+        </ul>
+      </div>
+      <div class="outcome-box">
+        <div class="outcome-label">Outcome</div>
+        Adds a <strong>second dataset column</strong> in all tables. Strengthens generalization claims without a full sweep.
+      </div>
+      <div class="phase-meta">
+        <div>Runs: <span class="meta-value">6</span></div>
+        <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 4</span></span></div>
+        <div>Fills: <span class="meta-value">MNIST / CIFAR-10 columns</span></div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M6 12l4 4 4-4"/></svg>
+    </div>
+
+    <!-- Phase 6 -->
+    <div class="phase-card">
+      <span class="phase-badge badge-ablation">Phase 6</span>
+      <div class="phase-title">Sensitivity: Group Size &times; Byzantine Count</div>
+      <div class="phase-question">How sensitive is FactorGraphs to group size and number of attackers?</div>
+      <div class="phase-body">
+        <p>Sweep both group size and attacker count to produce a sensitivity heatmap. Preemptively answers a common reviewer question.</p>
+        <ul>
+          <li>Group sizes: <strong>k &isin; {5, 10, 20, 30}</strong></li>
+          <li>Byzantine clients: <strong>nbyz &isin; {10, 20, 30}</strong></li>
+          <li>FactorGraphs only &times; FEMNIST &times; Label Flipping &times; &beta;=0</li>
+          <li>= 4 &times; 3 = <strong>12 runs</strong></li>
+        </ul>
+        <p><strong>Expected trends:</strong> Smaller groups &rarr; faster detection (less dilution) but more groups needed. More attackers &rarr; harder detection but stronger aggregate signal. The heatmap reveals the operating envelope.</p>
+      </div>
+      <div class="outcome-box">
+        <div class="outcome-label">Outcome</div>
+        Produces a <strong>k &times; nbyz sensitivity heatmap</strong> showing accuracy across configurations. Identifies sweet spots and failure boundaries.
+      </div>
+      <div class="phase-meta">
+        <div>Runs: <span class="meta-value">12</span></div>
+        <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 2</span></span></div>
+        <div>Fills: <span class="meta-value">Sensitivity heatmap (new table/figure)</span></div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M6 12l4 4 4-4"/></svg>
+    </div>
+
+    <!-- Phase 7 -->
+    <div class="phase-card">
+      <span class="phase-badge badge-arch">Phase 7</span>
+      <div class="phase-title">Architecture Comparison</div>
+      <div class="phase-question">Does the defense transfer across model architectures?</div>
+      <div class="phase-body">
+        <p>Test whether FactorGraphs' performance depends on the model architecture. Compare the anchor MobileNetV3 against <strong>EfficientNet</strong> and optionally <strong>ResNet-18</strong>.</p>
+        <ul>
+          <li>FactorGraphs + FedAvg &times; 2 new architectures (EfficientNet, ResNet-18)</li>
+          <li>&times; Label Flipping &times; FEMNIST &times; Grouped (k=10)</li>
+          <li>Fixed: nbyz=20, &beta;=0</li>
+          <li>= 2 methods &times; 2 archs = <strong>4 runs</strong></li>
+        </ul>
+        <p><strong>Why this matters:</strong> If FactorGraphs works regardless of architecture, it strengthens the "protocol-agnostic" claim &mdash; the defense is truly decoupled from the model.</p>
+      </div>
+      <div class="outcome-box">
+        <div class="outcome-label">Outcome</div>
+        Adds an <strong>architecture comparison table</strong> (MobileNetV3 vs EfficientNet vs ResNet-18). Confirms model-agnostic behavior.
+      </div>
+      <div class="phase-meta">
+        <div>Runs: <span class="meta-value">4</span></div>
+        <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 2</span></span></div>
+        <div>Fills: <span class="meta-value">Architecture comparison table (new)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SENSITIVITY GRID PREVIEW ============ -->
+  <div class="section" id="sensitivity">
+    <div class="section-title">Sensitivity Grid Preview</div>
+    <div class="section-subtitle">Phase 6 will produce a heatmap across these 12 configurations (k &times; nbyz)</div>
+
+    <div class="card">
+      <table class="data-table" style="max-width: 600px;">
+        <thead>
+          <tr>
+            <th></th>
+            <th style="text-align:center">nbyz = 10<br><span style="font-weight:400; text-transform:none;">(5%)</span></th>
+            <th style="text-align:center">nbyz = 20<br><span style="font-weight:400; text-transform:none;">(10%)</span></th>
+            <th style="text-align:center">nbyz = 30<br><span style="font-weight:400; text-transform:none;">(15%)</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>k = 5</strong></td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+          </tr>
+          <tr>
+            <td><strong>k = 10</strong></td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+            <td class="num" style="text-align:center; background: var(--blue-dim); border: 2px solid var(--blue);">anchor</td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+          </tr>
+          <tr>
+            <td><strong>k = 20</strong></td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+          </tr>
+          <tr>
+            <td><strong>k = 30</strong></td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+            <td class="num" style="text-align:center; background: var(--amber-dim);">edge case</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size: 12px; color: var(--text-muted); margin-top: 12px; font-family: var(--mono);">
+        <span style="display:inline-block; width:10px; height:10px; background:var(--blue-dim); border:2px solid var(--blue); border-radius:2px; vertical-align:middle; margin-right:4px;"></span> anchor = default config from Phases 1&ndash;3 &nbsp;&nbsp;
+        <span style="display:inline-block; width:10px; height:10px; background:var(--amber-dim); border-radius:2px; vertical-align:middle; margin-right:4px;"></span> edge case = k=30 with 30 attackers means ~1 attacker per group on average
+      </p>
+    </div>
+
+    <div class="card" style="margin-top: 16px;">
+      <div style="font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 12px;">&beta;-sweep Preview (Phase 4)</div>
+      <div style="display: flex; align-items: flex-end; gap: 2px; height: 120px; padding-bottom: 24px; position: relative;">
+        <!-- axis labels -->
+        <div style="position: absolute; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-around; font-family: var(--mono); font-size: 11px; color: var(--text-muted);">
+          <span>&beta;=0</span><span>0.25</span><span>0.50</span><span>0.75</span><span>1.0</span>
+        </div>
+        <!-- bars representing expected difficulty curve -->
+        <div style="flex:1; display:flex; align-items:flex-end; justify-content:center;">
+          <div style="width:60%; height:95%; background:var(--accent); border-radius:4px 4px 0 0; opacity:0.8;"></div>
+        </div>
+        <div style="flex:1; display:flex; align-items:flex-end; justify-content:center;">
+          <div style="width:60%; height:85%; background:var(--accent); border-radius:4px 4px 0 0; opacity:0.7;"></div>
+        </div>
+        <div style="flex:1; display:flex; align-items:flex-end; justify-content:center;">
+          <div style="width:60%; height:70%; background:var(--amber); border-radius:4px 4px 0 0; opacity:0.7;"></div>
+        </div>
+        <div style="flex:1; display:flex; align-items:flex-end; justify-content:center;">
+          <div style="width:60%; height:50%; background:var(--amber); border-radius:4px 4px 0 0; opacity:0.8;"></div>
+        </div>
+        <div style="flex:1; display:flex; align-items:flex-end; justify-content:center;">
+          <div style="width:60%; height:35%; background:var(--red); border-radius:4px 4px 0 0; opacity:0.7;"></div>
+        </div>
+      </div>
+      <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
+        Expected pattern: accuracy degrades as &beta; increases (more non-IID). The question is <em>where</em> FactorGraphs separates from baselines.
+      </p>
+    </div>
+  </div>
+
+  <!-- ============ RUN BUDGET ============ -->
+  <div class="section" id="budget">
+    <div class="section-title">Run Budget</div>
+    <div class="section-subtitle">Cumulative experiment count by phase</div>
+
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Phase</th>
+            <th>Question</th>
+            <th style="text-align:center">Runs</th>
+            <th style="text-align:center">Cumul.</th>
+            <th>Paper Artifact</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="num pos">0</span></td>
+            <td>Baseline landscape (dataset &times; architecture)</td>
+            <td class="num" style="text-align:center">18</td>
+            <td class="num" style="text-align:center">18</td>
+            <td>Baseline landscape table</td>
+          </tr>
+          <tr>
+            <td><span class="num neg">1</span></td>
+            <td>Grouping failure (the problem)</td>
+            <td class="num" style="text-align:center">16</td>
+            <td class="num" style="text-align:center">34</td>
+            <td>Table 1 + Fig. 1</td>
+          </tr>
+          <tr>
+            <td><span class="num blue-text">2</span></td>
+            <td>Inference recovery (the solution)</td>
+            <td class="num" style="text-align:center">2</td>
+            <td class="num" style="text-align:center">36</td>
+            <td>Table 1 (FactorGraphs row)</td>
+          </tr>
+          <tr>
+            <td><span class="num blue-text">3</span></td>
+            <td>Backdoor defense trade-off</td>
+            <td class="num" style="text-align:center">4</td>
+            <td class="num" style="text-align:center">40</td>
+            <td>Fig. 2 (ACC vs ASR)</td>
+          </tr>
+          <tr>
+            <td><span class="num purple-text">4</span></td>
+            <td>Non-IID robustness sweep (&beta; = 0.25&ndash;1.0)</td>
+            <td class="num" style="text-align:center">24</td>
+            <td class="num" style="text-align:center">64</td>
+            <td>&beta;-sweep figure + non-IID cols</td>
+          </tr>
+          <tr>
+            <td><span class="num amber-text">5</span></td>
+            <td>Generalization (2nd dataset)</td>
+            <td class="num" style="text-align:center">6</td>
+            <td class="num" style="text-align:center">70</td>
+            <td>MNIST / CIFAR-10 columns</td>
+          </tr>
+          <tr>
+            <td><span class="num">6</span></td>
+            <td>Sensitivity: k &times; nbyz grid</td>
+            <td class="num" style="text-align:center">12</td>
+            <td class="num" style="text-align:center">82</td>
+            <td>Sensitivity heatmap</td>
+          </tr>
+          <tr>
+            <td><span class="num teal-text">7</span></td>
+            <td>Architecture comparison</td>
+            <td class="num" style="text-align:center">4</td>
+            <td class="num" style="text-align:center">86</td>
+            <td>Architecture table</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Budget bar chart -->
+    <div class="card" style="margin-top: 16px;">
+      <div style="font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 16px;">Runs per Phase (max = 24)</div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 0</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 75%; background: var(--accent);"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">18</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 1</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 66.7%; background: var(--red);"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">16</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 2</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 8.3%; background: var(--blue);"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">2</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 3</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 16.7%; background: var(--blue);"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">4</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 4</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 100%; background: var(--purple);"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">24</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 5</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 25%; background: var(--amber);"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">6</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 6</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 50%; background: #5A5E6E;"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">12</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 7</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 16.7%; background: var(--teal);"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">4</div>
+      </div>
+    </div>
+
+    <!-- Savings callout -->
+    <div class="card" style="margin-top: 16px; display: flex; align-items: center; gap: 24px;">
+      <div style="text-align: center; min-width: 160px;">
+        <div style="font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 4px;">Reduction</div>
+        <div style="font-family: var(--mono); font-size: 32px; font-weight: 700; color: var(--accent);">98.7%</div>
+        <div style="font-size: 12px; color: var(--text-muted);">fewer experiments</div>
+      </div>
+      <div style="flex: 1; font-size: 14px; color: var(--text-dim); line-height: 1.65; border-left: 1px solid var(--border); padding-left: 24px;">
+        <strong style="color: var(--text);">~86 runs</strong> instead of 6,750. Phase 0 invests 18 runs upfront to data-drive the anchor dataset and architecture &mdash; this cost pays for itself by eliminating bad combos from all subsequent phases.
+        Phase 4 (&beta;-sweep) is the largest at 24 runs &mdash; this is intentional, as non-IID robustness is a core differentiator.
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DEPENDENCY FLOW ============ -->
+  <div class="section" id="flow">
+    <div class="section-title">Dependency Flow</div>
+    <div class="section-subtitle">How early decisions narrow later experiments</div>
+
+    <div class="card">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <!-- Left: flow diagram as styled list -->
+        <div>
+          <div style="font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 16px;">Decision Chain</div>
+
+          <div style="padding-left: 20px; border-left: 2px solid var(--accent); margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--accent);">Phase 0 decides:</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Anchor dataset (data-driven, not assumed)<br>Best architecture for that dataset<br>Eliminates bad dataset-arch combos<br>Defaults for later phases: k=10, nbyz=20, &beta;=0</div>
+          </div>
+
+          <div style="padding-left: 20px; border-left: 2px solid var(--red); margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--red);">Phase 1 decides:</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Which baselines survive grouping<br>Drop broken baselines from Phases 4+</div>
+          </div>
+
+          <div style="padding-left: 20px; border-left: 2px solid var(--blue); margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--blue);">Phases 2&ndash;3 decide:</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Whether FactorGraphs works at all<br>If not &rarr; revisit method before scaling</div>
+          </div>
+
+          <div style="padding-left: 20px; border-left: 2px solid var(--purple); margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--purple);">Phase 4 decides:</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Where the non-IID crossover is<br>Which &beta; values to feature in tables<br>Whether extreme non-IID (&beta;=1.0) is worth showing</div>
+          </div>
+
+          <div style="padding-left: 20px; border-left: 2px solid var(--amber); margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--amber);">Phase 5 decides:</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Scope of generalization claims<br>Whether CIFAR-10 is needed</div>
+          </div>
+
+          <div style="padding-left: 20px; border-left: 2px solid #5A5E6E; margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 600; color: #5A5E6E;">Phase 6 decides:</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Operating envelope of FactorGraphs<br>Failure boundaries (k too large? nbyz too high?)</div>
+          </div>
+
+          <div style="padding-left: 20px; border-left: 2px solid var(--teal);">
+            <div style="font-size: 13px; font-weight: 600; color: var(--teal);">Phase 7 decides:</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Strength of "architecture-agnostic" claim<br>Whether EfficientNet results differ from MobileNetV3</div>
+          </div>
+        </div>
+
+        <!-- Right: pivot points -->
+        <div>
+          <div style="font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 16px;">Pivot Points</div>
+
+          <div style="background: var(--accent-dim); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 12px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--accent);">If multiple combos tie in Phase 0</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Break ties by practical criteria: training speed, memory footprint, relevance to the target venue (IEEE Trans. Power Systems). Prefer the harder dataset to preempt reviewer pushback.</div>
+          </div>
+
+          <div style="background: var(--red-dim); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 12px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--red);">If Krum doesn't collapse</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">The "visibility gap" framing weakens. Try smaller group sizes (k=5) or different nbyz before adjusting narrative.</div>
+          </div>
+
+          <div style="background: var(--blue-dim); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 12px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--blue);">If FactorGraphs underperforms</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Stop at Phase 2. Tune belief propagation parameters, observation function, or exclusion threshold before running more.</div>
+          </div>
+
+          <div style="background: var(--purple-dim); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 12px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--purple);">If &beta;=1.0 breaks everything</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Expected &mdash; fully non-IID is adversarial to all methods. Report it as an honest limitation rather than omitting it. Show FactorGraphs degrades gracefully.</div>
+          </div>
+
+          <div style="background: var(--amber-dim); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 12px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--amber);">If MNIST results are trivial</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Skip MNIST, invest in CIFAR-10 + ResNet-18 instead. Harder dataset = stronger generalization claim.</div>
+          </div>
+
+          <div style="background: var(--teal-dim); border-radius: var(--radius-sm); padding: 14px 16px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--teal);">If EfficientNet diverges from MobileNetV3</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Investigate whether the anomaly scoring function (SignGuard) is architecture-sensitive. May need to tune &mu;<sub>mal</sub>/&mu;<sub>ben</sub> per architecture.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PAPER MAPPING ============ -->
+  <div class="section" id="mapping">
+    <div class="section-title">Paper Mapping</div>
+    <div class="section-subtitle">Which experiments fill which placeholders in the manuscript</div>
+
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Paper Artifact</th>
+            <th>Current State</th>
+            <th>Filled By</th>
+            <th>Key Data Needed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Baseline Landscape</strong> &mdash; Dataset &times; Arch (NEW)</td>
+            <td><span class="num neg">Not yet present</span></td>
+            <td><span class="dep-tag" style="background: var(--accent-dim); color: var(--accent);">P0</span></td>
+            <td>Clean ACC + attack &Delta; for 9 dataset-arch combos</td>
+          </tr>
+          <tr>
+            <td><strong>Table 1</strong> &mdash; Grouping Impact &Delta;</td>
+            <td><span class="num neg">XX.X% placeholders</span></td>
+            <td><span class="dep-tag" style="background: var(--red-dim); color: var(--red);">P1</span> <span class="dep-tag" style="background: var(--blue-dim); color: var(--blue);">P2</span></td>
+            <td>ACC for all methods &times; Grouped/Non-Grouped</td>
+          </tr>
+          <tr>
+            <td><strong>Fig. 1</strong> &mdash; Grouping Impact Curves</td>
+            <td><span class="num pos">Has image.png</span></td>
+            <td><span class="dep-tag" style="background: var(--red-dim); color: var(--red);">P1</span></td>
+            <td>Training curves for all baselines</td>
+          </tr>
+          <tr>
+            <td><strong>Fig. 2</strong> &mdash; ACC vs ASR Scatter</td>
+            <td><span class="num neg">XX% placeholders</span></td>
+            <td><span class="dep-tag" style="background: var(--blue-dim); color: var(--blue);">P3</span></td>
+            <td>ACC + ASR for all methods under Scaling Backdoor</td>
+          </tr>
+          <tr>
+            <td><strong>&beta;-sweep figure</strong> &mdash; ACC vs &beta; (NEW)</td>
+            <td><span class="num neg">Not yet present</span></td>
+            <td><span class="dep-tag" style="background: var(--purple-dim); color: var(--purple);">P4</span></td>
+            <td>ACC across &beta; &isin; {0, 0.25, 0.5, 0.75, 1.0} for 3 methods &times; 2 attacks</td>
+          </tr>
+          <tr>
+            <td><strong>Non-IID columns</strong></td>
+            <td><span class="num neg">Not yet present</span></td>
+            <td><span class="dep-tag" style="background: var(--purple-dim); color: var(--purple);">P4</span></td>
+            <td>Repeat key results with selected &beta; values</td>
+          </tr>
+          <tr>
+            <td><strong>2nd Dataset columns</strong></td>
+            <td><span class="num neg">Not yet present</span></td>
+            <td><span class="dep-tag" style="background: var(--amber-dim); color: var(--amber);">P5</span></td>
+            <td>FactorGraphs + FedAvg + best baseline on MNIST</td>
+          </tr>
+          <tr>
+            <td><strong>Sensitivity heatmap</strong> &mdash; k &times; nbyz (NEW)</td>
+            <td><span class="num neg">Not yet present</span></td>
+            <td><span class="dep-tag">P6</span></td>
+            <td>ACC for k &isin; {5,10,20,30} &times; nbyz &isin; {10,20,30}</td>
+          </tr>
+          <tr>
+            <td><strong>Architecture table</strong> (NEW)</td>
+            <td><span class="num neg">Not yet present</span></td>
+            <td><span class="dep-tag" style="background: var(--teal-dim); color: var(--teal);">P7</span></td>
+            <td>MobileNetV3 vs EfficientNet vs ResNet-18</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ FOOTER ============ -->
+  <div style="text-align: center; padding: 32px 0 16px; font-size: 12px; color: var(--text-muted); font-family: var(--mono);">
+    FactorGraphs Experiment Plan &middot; ~86 runs vs 6,750 full sweep &middot; 8 phases &middot; 98.7% reduction
+  </div>
+
+</body>
+</html>

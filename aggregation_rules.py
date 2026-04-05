@@ -1306,6 +1306,8 @@ from pgmax.infer import BP, get_marginals
 from bayesian.components import observation_function
 from bayesian.factor_graph import _maybe_init_bayesian_and_csv
 import random
+import experiment_logger as explog
+import time as _time
 
 
 def _apply_byzantine_attack_and_flatten(gradients, net, lr, f, byz, device):
@@ -1327,71 +1329,62 @@ def _apply_byzantine_attack_and_flatten(gradients, net, lr, f, byz, device):
 
 def _run_inference_and_update(bayesian_params, graph, variables, groups, group_gradients,
                               round_id, f, param_list, net, lr):
-    #print(f"Round {round_id}: Running Bayesian inference with {len(groups)} groups")
-    
+
+    round_start = _time.perf_counter()
+
     if "factor_store" not in bayesian_params:
         bayesian_params["factor_store"] = {}
         bayesian_params['skippedFactorsCount'] = 0
-
-
+    if "latency_tracker" not in bayesian_params:
+        bayesian_params["latency_tracker"] = {}
 
     # observed group scores
     observed_scores = observation_function(group_gradients, bayesian_params)
 
-    # write records to save to csv that includes round_id, group_id, numberOfMal, score
-
-
-
     # build factors and run BP
-    #print(f'Number of groups: {len(groups)}')
     for group_id, indices in groups.values():
         group_key_for_factorGraphs = frozenset(indices)
 
         group_variables = [variables[idx] for idx in indices]
-        factor_configs = np.array(list(product([0,1], repeat=len(indices))))  # all combinations of faulty/not faulty for the group
+        factor_configs = np.array(list(product([0,1], repeat=len(indices))))
 
-        likelihoods = []  # likelihoods for each configuration
-        #print(f'Number of configs: {len(factor_configs)} for group {group_id} with len users {len(indices)}')
-
+        likelihoods = []
         for config in factor_configs:
-            # config is tuple
             obs = observed_scores[group_id]
-            exp = 1 if any(config) else 0  # expected observation: 1 if any faulty in group, else 0
+            exp = 1 if any(config) else 0
 
             if obs == 1:
                 p = bayesian_params.get("true_positive_rate", 0.8) if exp == 1 else (1 - bayesian_params.get("true_negative_rate", 0.8))
             else:
                 p = (1 - bayesian_params.get("true_positive_rate", 0.8)) if exp == 1 else bayesian_params.get("true_negative_rate", 0.8)
-            likelihoods.append(np.log(p + 1e-10))  # add small value to avoid log(0)
+            likelihoods.append(np.log(p + 1e-10))
 
         likelihoods = np.array(likelihoods)
         if group_key_for_factorGraphs not in bayesian_params["factor_store"]:
             factor = EnumFactor(
                 factor_configs=factor_configs,
                 variables=group_variables,
-                log_potentials= likelihoods
+                log_potentials=likelihoods
             )
-            graph.add_factors(factor)  # add the factor to the graph
+            graph.add_factors(factor)
             bayesian_params["factor_store"][group_key_for_factorGraphs] = factor
-
         else:
             factor = bayesian_params["factor_store"][group_key_for_factorGraphs]
-            #factor.log_potentials = likelihoods  # update the log potentials
             bayesian_params['skippedFactorsCount'] += 1
-    
-    
-    bp = BP(graph.bp_state, temperature=bayesian_params.get("factorGraphs_temperature", 0.1))  # create BP object
-    bp_arrays = bp.init()  # initialize BP
-    bp_arrays = bp.run(bp_arrays, num_iters=bayesian_params.get("factorGraphs_num_iters", 100))  # run BP inference # or use damping
-    beliefs = bp.get_beliefs(bp_arrays)  # get beliefs
-    marginals = get_marginals(beliefs)  # get marginals
-    #print(f"Round {round_id}: Latent variable marginals: {len(marginals[variables])}")
-    # update round_id
+
+    # --- BP inference (timed) ---
+    inference_start = _time.perf_counter()
+    bp = BP(graph.bp_state, temperature=bayesian_params.get("factorGraphs_temperature", 0.1))
+    bp_arrays = bp.init()
+    bp_arrays = bp.run(bp_arrays, num_iters=bayesian_params.get("factorGraphs_num_iters", 100))
+    beliefs = bp.get_beliefs(bp_arrays)
+    marginals = get_marginals(beliefs)
+    inference_ms = (_time.perf_counter() - inference_start) * 1000
+
     bayesian_params["current_round"] = round_id + 1
-    # update latent_variables
     bayesian_params["latent_variables"] = {i: marginals[variables][i, 1] for i in range(len(marginals[variables]))}
 
-    # update net using fedavg with weights based on 1 - latent_variable
+    # --- weighted aggregation ---
     global_update = torch.zeros_like(param_list[0])
     weights = []
     skippedGroups = 0
@@ -1400,34 +1393,25 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
         hasMalUser = False
         for u_id in groups[g_id][1]:
             latent_var = bayesian_params["latent_variables"].get(u_id)
-            # 1 - latent_var is the weight for the user (i.e., gradients * weights)
             group_weights.append(float(1 - latent_var))
             if u_id < f:
                 hasMalUser = True
-            
-        # take the minimum weight in the group as the weight for the group. Taking the min is a conservative choice.
+
         weight = min(group_weights)
 
-        
-        if weight < 0.95: # if the weight is less than 0.95, it means it's likely a bad gradient to include in the update
-            weight = 0.0  # thresholding
+        if weight < 0.95:
+            weight = 0.0
             isIncludedToAverage = 1
             if not hasMalUser:
                 skippedGroups += 1
-                #print(f"Round {round_id}: Group {g_id} of {len(group_gradients)} groups has no malicious user but was filtered out with weight {min(group_weights):.4f}")
-
-
-
         else:
             isIncludedToAverage = 1 / len(group_weights)
             if hasMalUser:
                 print(f"Round {round_id}: Group {g_id} with malicious user accepted with weight {weight:.4f}")
-    
 
         weights.append(weight)
         gradient *= weight
-        gradient *= isIncludedToAverage# effectively averages the summed gradients in the group
-        
+        gradient *= isIncludedToAverage
         global_update += gradient
 
     sum_weights = sum(weights)
@@ -1439,62 +1423,30 @@ def _run_inference_and_update(bayesian_params, graph, variables, groups, group_g
         for j, (param) in enumerate(net.parameters()):
             param.add_(global_update[idx:(idx + torch.numel(param))].reshape(tuple(param.size())), alpha=-lr)
             idx += torch.numel(param)
-    else:
-        pass
-        #print(f"Round {round_id}: Skipping model update to allow Bayesian model to warm up")
-    #print(f"Round {round_id}: Weights applied to each client: {weights}")
-    # skipped factors out of total factors
+
     total_factors = len(bayesian_params["factor_store"])
-    if round_id > 1990:
-        pass
-        #print(f"Round {round_id}: Skipped {bayesian_params['skippedFactorsCount']} out of {total_factors} factors")
-    
-
-    meta = bayesian_params['meta_data']
-    dataset_name = meta['dataset']
-    byz_type = meta['attack_type']
-    n_byzantine = meta['n_byzantine']
-    bias = meta['bias']
-    n_workers = meta['n_workers']
-
-    meta_record = {
-        'dataset': dataset_name,
-        'attack_type': byz_type,
-        'n_byzantine': n_byzantine,
-        'bias': bias,
-        'n_workers': n_workers
-    }
-
-    records = []
-    for gid, score in observed_scores.items():
-        indices = groups[gid][1]
-        numberOfMal = sum([1 for idx in indices if idx < f])
-        # Build filtered lists that preserve the original idx
-        normal_pairs = [(idx, anomalyScore) for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx >= f]
-        mal_pairs    = [(idx, anomalyScore) for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx < f]
-
-        record = {
-            "round_id": round_id,
-            "group_id": gid,
-            "numberOfMal": numberOfMal,
-            "score": float(score),
-            'avgMalScore': np.mean([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx < f]),
-            'avgNormScore': np.mean([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx >= f]),
-            'minMalScore': np.min([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx < f]),
-            'maxNormScore': np.max([ anomalyScore for idx, anomalyScore in bayesian_params["latent_variables"].items() if idx >= f]),
-            'idxOfMaxNormScore': max(normal_pairs, key=lambda x: x[1])[0] if normal_pairs else None,
-            'idxOfMinMalScore':  min(mal_pairs,    key=lambda x: x[1])[0] if mal_pairs else None,
-        }
-        # add meta data to record
-        record.update(meta_record)
-
-        records.append(record)
-    # save to csv in append mode (keep original path)
-    df = pd.DataFrame(records)
-    DIR = os.path.join(os.path.dirname(__file__), "score_function_viz", "observation_scores.csv")
-    df.to_csv(DIR, mode="a", header=False, index=False)
     print(f"skipped factor percentage: {bayesian_params['skippedFactorsCount'] / total_factors}")
     print(f'Percentage of groups (out of {len(weights)}) that were skipped ({skippedGroups}): {skippedGroups / len(weights)}')
+
+    # --- save factorGraphs-specific results ---
+    exp_dir = bayesian_params.get("results_dir")
+    if exp_dir:
+        meta = bayesian_params["meta_data"]
+        latent = bayesian_params["latent_variables"]
+
+        explog.save_client_beliefs(exp_dir, round_id, latent, f)
+        explog.save_detection_metrics(exp_dir, round_id, latent, f)
+        bayesian_params["latency_tracker"] = explog.save_detection_latency(
+            exp_dir, round_id, latent, f, bayesian_params["latency_tracker"]
+        )
+        explog.save_client_weights(exp_dir, round_id, groups, latent)
+        explog.save_group_assignments(exp_dir, round_id, groups)
+
+        total_round_ms = (_time.perf_counter() - round_start) * 1000
+        explog.save_inference_timing(exp_dir, round_id, inference_ms, total_round_ms)
+
+        explog.save_observation_scores(exp_dir, round_id, observed_scores, groups, latent, f, meta)
+
     return bayesian_params
 
 
@@ -1535,9 +1487,6 @@ def factorGraphs(gradients, net, lr, f, byz, device, bayesian_params):
 
     return bayesian_params
 
-
-import pandas as pd
-from visualize_scoringfunction import round_full_scores
 
 #########################################
 def fedavg(gradients, net, lr, f, byz, device, data_sizes, group_size = 0):

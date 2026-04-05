@@ -51,6 +51,7 @@ import subprocess
 import time
 
 import json
+import experiment_logger as explog
 
 import torch.nn as nn
 import torch.utils.data
@@ -70,100 +71,11 @@ Revert later for honest comparison
 
 
 
-def save_results_to_csv(runs_test_accuracy, runs_backdoor_success, test_iterations, args):
-    """
-    Saves numerical results to CSV files.
-    """
-    import pandas as pd
-    import os
-    import numpy as np
-    
-    # Create results directories if they don't exist
-    os.makedirs("results3rdOct", exist_ok=True)
-    os.makedirs("finalResults", exist_ok=True)
-    
-    # Convert to numpy arrays to better handle dimensions
-    runs_test_accuracy = np.array(runs_test_accuracy)
-    test_iterations = np.array(test_iterations)
-    
-    # Print shapes for debugging
-    """
-    print(f"runs_test_accuracy shape: {runs_test_accuracy.shape}")
-    print(f"test_iterations shape: {test_iterations.shape}")
-    """
-    # Handle single run case
-    if runs_test_accuracy.ndim == 1:
-        runs_test_accuracy = runs_test_accuracy.reshape(1, -1)
-    
-    # Get number of columns in accuracy data
-    num_cols = runs_test_accuracy.shape[1]
-    
-    # Create properly sized column names
-    if len(test_iterations) == num_cols:
-        column_names = [f"Iter_{i}" for i in test_iterations]
-    else:
-        # If lengths don't match, just use generic column names
-        column_names = [f"Iter_{i}" for i in range(num_cols)]
-    
-    # Save test accuracy
-    test_acc_df = pd.DataFrame(runs_test_accuracy, columns=column_names)
-    test_acc_df.to_csv(f"results3rdOct/accuracy_dataset-{args.dataset}_nworkers-{args.nworkers}_group_size-{args.group_size}_aggregation-{args.aggregation}_byz_type-{args.byz_type}_nbyz-{args.nbyz}_bias-{args.bias}.csv", index=False)
-
-    # Save backdoor success rate if available
+def save_results_to_csv(runs_test_accuracy, runs_backdoor_success, test_iterations, args, exp_dir):
+    """Save final run results to the experiment directory."""
+    explog.save_accuracy(exp_dir, runs_test_accuracy, test_iterations)
     if args.byz_type == "scaling_attack":
-        if isinstance(runs_backdoor_success, list):
-            runs_backdoor_success = np.array(runs_backdoor_success)
-        
-        # Handle single run case
-        if runs_backdoor_success.ndim == 1:
-            runs_backdoor_success = runs_backdoor_success.reshape(1, -1)
-            
-        backdoor_df = pd.DataFrame(runs_backdoor_success, columns=column_names)
-        backdoor_df.to_csv(f"results3rdOct/backdoor_dataset-{args.dataset}_nworkers-{args.nworkers}_group_size-{args.group_size}_aggregation-{args.aggregation}_byz_type-{args.byz_type}_nbyz-{args.nbyz}_bias-{args.bias}.csv", index=False)
-    else:
-        
-        empty_runs_backdoor_success = [None] * len(test_iterations)
-    # Save configuration
-    with open(f"results3rdOct/config_dataset-{args.dataset}_nworkers-{args.nworkers}_group_size-{args.group_size}_aggregation-{args.aggregation}_byz_type-{args.byz_type}_nbyz-{args.nbyz}_bias-{args.bias}.txt", 'w') as f:
-        for arg, value in vars(args).items():
-            f.write(f"{arg}: {value}\n")
-
-
-
-    # Save to a JSON file. 
-    json_MetaData = {
-        arg: value for arg, value in vars(args).items()
-    }
-    json_results ={
-        'rounds': test_iterations.tolist(),
-        'accuracy': runs_test_accuracy[0].tolist(),
-        'backdoor_success': runs_backdoor_success[0].tolist() if args.byz_type == "scaling_attack" else empty_runs_backdoor_success,
-        "stats": {
-            "best_accuracy": np.max(runs_test_accuracy[0]),
-            "last_accuracy": runs_test_accuracy[0][-1],
-            "backdoor_success_at_best_accuracy": runs_backdoor_success[0][np.argmax(runs_test_accuracy[0])] if args.byz_type == "scaling_attack" else None,
-            "last_backdoor_success": runs_backdoor_success[0][-1] if args.byz_type == "scaling_attack" else None,
-        }
-        }
-
-    json_final ={
-        'meta_data': json_MetaData,
-        'results': json_results
-    }
-
-    
-    # if the file already exists, append to it. else create a new file. The file name is just allResults.json
-    if os.path.exists("finalResults/allResults.json"):
-        
-        with open("finalResults/allResults.json", 'r') as f:
-            existing_data = json.load(f)
-        existing_data.append(json_final)
-        with open("finalResults/allResults.json", 'w') as f:
-            json.dump(existing_data, f, indent=4)
-    else:
-        
-        with open("finalResults/allResults.json", 'w') as f:
-            json.dump([json_final], f, indent=4)
+        explog.save_backdoor(exp_dir, runs_backdoor_success, test_iterations)
 
 
 def save_mpc_metrics(args, total_time, communication_cost=None):
@@ -681,6 +593,9 @@ def main(args):
         mpc_total_time = mpc_end_time - mpc_start_time
         save_mpc_metrics(args, mpc_total_time)
 
+    # Initialize experiment results directory (all aggregation methods)
+    exp_dir = explog.init_experiment_dir(args)
+
     # perform multiple runs
     for run in range(1, args.nruns+1):
         grad_list = []
@@ -747,15 +662,17 @@ def main(args):
                         }
 
                 }
-                
-
-            
+                factorGraph_params["results_dir"] = exp_dir
 
         train_data, test_data = data_loaders.load_data(args.dataset, args.seed)  # load the data
 
         # assign data to the server and clients
         server_data, server_label, each_worker_data, each_worker_label = data_loaders.assign_data(train_data, args.bias, device,
             num_labels=num_labels, num_workers=args.nworkers, server_pc=args.server_pc, p=args.p, dataset=args.dataset, seed=args.seed)
+
+        # Save per-client data distribution BEFORE poisoning (all aggregation methods, first run only)
+        if run == 1:
+            explog.save_data_distribution(exp_dir, each_worker_label, num_labels, args.nbyz)
 
         # perform data poisoning attacks
         if args.byz_type == "label_flipping_attack":
@@ -877,55 +794,20 @@ def main(args):
                     test_iterations.append(e)
                     if args.byz_type == "scaling_attack":
                         backdoor_success_list.append(test_success_rate)
-                        round_backdoor_success = test_success_rate
                         print("Iteration %02d. Test_acc %0.4f. Backdoor success rate: %0.4f" % (e, test_accuracy, test_success_rate))
-                    else: 
-                        round_backdoor_success = np.nan
+                    else:
                         print("Iteration %02d. Test_acc %0.4f" % (e, test_accuracy))
 
 
-                    round_num = e
-                    round_accuracy = test_accuracy
-                    
-                    aggregation_name = args.aggregation
-                    malicious_count = args.nbyz
-                    malicoiuos_type = args.byz_type
-                    bias_values = args.bias
-                    server_bias = args.p
-                    total_participants = args.nworkers
-                    experiment_id = args.exp_id
-
-                    record_round = {
-                        "round_num": round_num,
-                        "round_accuracy": round_accuracy,
-                        "round_backdoor_success": round_backdoor_success,
-                        "aggregation_name": aggregation_name,
-                        "malicious_count": malicious_count,
-                        "malicious_type": malicoiuos_type,
-                        "bias_values": bias_values,
-                        "server_bias": server_bias,
-                        "total_participants": total_participants,
-                        "experiment_id": experiment_id
-
-                    }
-
-                    #check if experiment_results.csv exists
-                    if os.path.exists('results/hierarchical/experiment_results.csv'):
-                        #read the csv file and append the new record
-                        df = pd.read_csv('results/hierarchical/experiment_results.csv')
-                        df = pd.concat([df, pd.DataFrame([record_round])], ignore_index=True)
-                        df.to_csv('results/hierarchical/experiment_results.csv', index=False)
-                    else:
-                        #create the csv file and write the new record
-                        df = pd.DataFrame([record_round])
-                        df.to_csv('results/hierarchical/experiment_results.csv', index=False)
-                    
+                    explog.save_round_result(exp_dir, e, test_accuracy,
+                        test_success_rate if args.byz_type == "scaling_attack" else np.nan, run)
 
 
-
-                        
-                    
-                        
+        # Finalize detection latency at end of run (factorGraphs only)
+        if args.aggregation == "factorGraphs" and "latency_tracker" in factorGraph_params:
+            explog.finalize_detection_latency(
+                exp_dir, factorGraph_params["latency_tracker"], args.nbyz, args.nworkers
+            )
 
         if args.mpspdz:
             server_process.wait()   # wait for process to exit
@@ -946,7 +828,7 @@ def main(args):
     
     
     
-    save_results_to_csv(runs_test_accuracy, runs_backdoor_success, test_iterations, args)
+    save_results_to_csv(runs_test_accuracy, runs_backdoor_success, test_iterations, args, exp_dir)
 
 
     return runs_test_accuracy, runs_backdoor_success, test_iterations
