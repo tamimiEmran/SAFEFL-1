@@ -550,11 +550,15 @@ def assign_data(train_data, bias, device, num_labels=10, num_workers=100, server
 
         all_indices = list(range(len(worker_labels)))
 
+        # Precompute non-specialist pools per class (these never change)
+        non_specialist_by_label = {}
+        for c in range(num_labels_eff):
+            non_specialist_by_label[c] = [w for w in all_indices if worker_labels[w]['main_label'] != c]
+
         # Track per-worker loads to balance assignments
         worker_loads = [0] * len(worker_labels)
 
         rng = random.Random(seed)  # local RNG
-        # No need to keep a fixed iteration order anymore
 
         for _, (data, label) in enumerate(train_data):
             data = data.to(device)
@@ -571,20 +575,15 @@ def assign_data(train_data, bias, device, num_labels=10, num_workers=100, server
                     server_counter[y_idx] += 1
                     continue
 
-                # Choose candidate pool once per sample
-                if num_labels_eff > 1 and rng.random() < specialization_prob: # <-- MINIMAL EDIT IS HERE
+                # Choose candidate pool (precomputed, no per-sample list rebuilds)
+                if num_labels_eff > 1 and rng.random() < specialization_prob:
                     candidates = workers_by_label.get(y_idx, [])
                 else:
-                    # all workers whose main_label != y_idx
-                    candidates = [w for w in all_indices if worker_labels[w]['main_label'] != y_idx]
+                    candidates = non_specialist_by_label.get(y_idx, [])
 
-                # Fallback in case a pool is empty (e.g., all specialists for a class are full)
+                # Fallback in case a pool is empty
                 if not candidates:
                     candidates = all_indices
-                
-                # Handle edge case where there are no candidates (e.g., 0 workers)
-                if not candidates:
-                    continue
 
                 # Pick the least-loaded candidate (tie-break randomly)
                 min_load = min(worker_loads[w] for w in candidates)
