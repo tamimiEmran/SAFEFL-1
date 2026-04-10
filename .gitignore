@@ -158,5 +158,8 @@ score_function_viz/
 figures/
 *.pdf
 
+# Scratch files
+filter_imports.txt
+
 # Datasets
 data/

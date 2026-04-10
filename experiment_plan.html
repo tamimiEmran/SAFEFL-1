@@ -271,10 +271,481 @@
       letter-spacing: 0.04em;
     }
 
+    /* === Interactive Decision Panels === */
+    .decision-panel {
+      background: var(--accent-dim);
+      border: 1px solid rgba(14, 154, 126, 0.18);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-top: 18px;
+      position: relative;
+    }
+    .decision-panel::before {
+      content: 'INTERACTIVE';
+      position: absolute;
+      top: -9px;
+      left: 20px;
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--bg-card);
+      padding: 0 8px;
+      border: 1px solid rgba(14, 154, 126, 0.18);
+      border-radius: 3px;
+    }
+    .decision-panel-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    .decision-panel-description {
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-bottom: 14px;
+      line-height: 1.55;
+    }
+
+    /* Clickable grid cells for Phase 0 */
+    .grid-cell-clickable {
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+      border: 2px solid transparent;
+    }
+    .grid-cell-clickable:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .grid-cell-clickable.selected {
+      border-color: var(--accent);
+      background: var(--accent-dim) !important;
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .grid-cell-clickable.selected::after {
+      content: 'SELECTED';
+      display: block;
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-top: 4px;
+    }
+
+    /* Decision selection display */
+    .decision-selection {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+    .decision-selection .sel-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .decision-selection.empty {
+      color: var(--text-muted);
+      border-style: dashed;
+    }
+    .decision-selection.empty .sel-dot {
+      background: var(--text-muted);
+      opacity: 0.3;
+    }
+
+    /* Command code blocks */
+    .cmd-block {
+      background: #1A1D26;
+      color: #E0E2E8;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      margin-top: 10px;
+      position: relative;
+      line-height: 1.6;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .cmd-block .cmd-copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #E0E2E8;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      padding: 3px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .cmd-block .cmd-copy-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    .cmd-block .cmd-copy-btn.copied {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* Checkbox and button controls */
+    .decision-checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .decision-checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .decision-checkbox-item:hover {
+      border-color: var(--accent);
+    }
+    .decision-checkbox-item input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    .decision-checkbox-item label {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .decision-checkbox-item.checked {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .decision-checkbox-item.collapsed {
+      border-color: var(--red);
+      background: var(--red-dim);
+    }
+    .decision-checkbox-item .cb-status {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .decision-checkbox-item .cb-status.survived {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+    .decision-checkbox-item .cb-status.collapsed-tag {
+      background: var(--red-dim);
+      color: var(--red);
+    }
+
+    /* Decision buttons */
+    .decision-btn-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .decision-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-card);
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .decision-btn:hover {
+      border-color: var(--text-muted);
+    }
+    .decision-btn.btn-yes {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .decision-btn.btn-yes:hover, .decision-btn.btn-yes.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    .decision-btn.btn-no {
+      border-color: var(--red);
+      color: var(--red);
+    }
+    .decision-btn.btn-no:hover, .decision-btn.btn-no.active {
+      background: var(--red-dim);
+      border-color: var(--red);
+    }
+    .decision-btn.active {
+      font-weight: 700;
+      box-shadow: 0 0 0 3px rgba(14,154,126,0.12);
+    }
+    .decision-btn.btn-no.active {
+      box-shadow: 0 0 0 3px rgba(217,69,62,0.12);
+    }
+
+    /* Radio button group */
+    .decision-radio-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .decision-radio-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .decision-radio-item:hover {
+      border-color: var(--amber);
+    }
+    .decision-radio-item input[type="radio"] {
+      accent-color: var(--amber);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    .decision-radio-item label {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .decision-radio-item.selected {
+      border-color: var(--amber);
+      background: var(--amber-dim);
+    }
+
+    /* Warning box */
+    .decision-warning {
+      background: var(--red-dim);
+      border: 1px solid rgba(217,69,62,0.2);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--red);
+      font-weight: 500;
+      display: none;
+    }
+    .decision-warning.visible {
+      display: block;
+    }
+
+    /* Read-only info display */
+    .decision-readonly {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+    .decision-readonly .ro-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .decision-readonly .ro-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .decision-readonly .ro-grid-item {
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 3px;
+      background: var(--bg-elevated);
+      text-align: center;
+    }
+
+    /* Computed info */
+    .decision-computed {
+      background: var(--blue-dim);
+      border: 1px solid rgba(59,111,214,0.15);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--blue);
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+
+    /* Phase decided indicator */
+    .phase-decided-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--accent-dim);
+      padding: 3px 10px;
+      border-radius: 4px;
+      margin-left: 10px;
+    }
+    .phase-decided-indicator.undecided {
+      color: var(--text-muted);
+      background: var(--bg-elevated);
+    }
+
+    /* Completion message */
+    .decision-complete {
+      background: var(--accent-dim);
+      border: 1px solid rgba(14,154,126,0.2);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* Sticky command bar */
+    .sticky-command-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #1A1D26;
+      border-top: 2px solid var(--accent);
+      padding: 14px 24px;
+      z-index: 1000;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+      display: flex;
+      align-items: flex-start;
+      gap: 24px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #E0E2E8;
+    }
+    .sticky-command-bar .scb-section {
+      flex: 1;
+      min-width: 0;
+    }
+    .sticky-command-bar .scb-label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+    .sticky-command-bar .scb-phases {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .sticky-command-bar .scb-phase-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.3);
+    }
+    .sticky-command-bar .scb-phase-dot.decided {
+      background: var(--accent);
+      color: #fff;
+    }
+    .sticky-command-bar .scb-phase-dot.current {
+      background: var(--amber);
+      color: #fff;
+    }
+    .sticky-command-bar .scb-next-cmd {
+      background: rgba(255,255,255,0.06);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+      overflow-x: auto;
+      position: relative;
+      padding-right: 70px;
+    }
+    .sticky-command-bar .scb-next-cmd .cmd-copy-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+    }
+    .sticky-command-bar .scb-config-snippet {
+      background: rgba(255,255,255,0.06);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      max-height: 80px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      font-size: 11px;
+      position: relative;
+      padding-right: 70px;
+    }
+    .sticky-command-bar .scb-config-snippet .cmd-copy-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+    }
+
+    /* Add bottom padding to body to account for sticky bar */
+    body {
+      padding-bottom: 130px;
+    }
+
     /* === Print === */
     @media print {
       body { padding: 24px; }
       .phase-card { break-inside: avoid; }
+      .sticky-command-bar { display: none; }
+      .decision-panel { break-inside: avoid; }
     }
   </style>
 </head>
@@ -556,6 +1027,27 @@
         <div>Dependencies: <span class="meta-value">None</span></div>
         <div>Fills: <span class="meta-value">Baseline Landscape table (new paper artifact)</span></div>
       </div>
+
+      <!-- Decision Panel: Phase 0 -->
+      <div class="decision-panel" id="decision-panel-0" style="margin-bottom: 24px;">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 0</div>
+        <div class="decision-panel-description">Click a cell in the run matrix above to select the anchor dataset + architecture pair. This choice propagates to all downstream phases.</div>
+        <div class="decision-selection empty" id="p0-selection">
+          <span class="sel-dot"></span>
+          <span id="p0-selection-text">No anchor selected &mdash; click a grid cell above</span>
+        </div>
+        <div id="p0-cmd-area" style="display:none;">
+          <div class="cmd-block" id="p0-decide-cmd">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p0-decide-cmd-text"></span>
+          </div>
+          <div style="margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Next: Run Phase 1</div>
+          <div class="cmd-block" id="p0-next-cmd">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p0-next-cmd-text"></span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="flow-connector">
@@ -586,6 +1078,44 @@
         <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 0</span></span></div>
         <div>Fills: <span class="meta-value">Table 1 + Fig. 1</span></div>
       </div>
+
+      <!-- Decision Panel: Phase 1 -->
+      <div class="decision-panel" id="decision-panel-1">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 1</div>
+        <div class="decision-panel-description" id="p1-description">Check baselines that <strong>survived</strong> grouping (unchecked = collapsed). Collapsed baselines will be dropped from Phase 4+ comparisons.</div>
+        <div class="decision-checkbox-group" id="p1-checkboxes">
+          <div class="decision-checkbox-item collapsed" id="p1-cb-krum" onclick="toggleBaseline('krum')">
+            <input type="checkbox" id="p1-check-krum">
+            <label for="p1-check-krum">krum</label>
+            <span class="cb-status collapsed-tag" id="p1-status-krum">collapsed</span>
+          </div>
+          <div class="decision-checkbox-item collapsed" id="p1-cb-shieldfl" onclick="toggleBaseline('shieldfl')">
+            <input type="checkbox" id="p1-check-shieldfl">
+            <label for="p1-check-shieldfl">shieldfl</label>
+            <span class="cb-status collapsed-tag" id="p1-status-shieldfl">collapsed</span>
+          </div>
+          <div class="decision-checkbox-item collapsed" id="p1-cb-signguard" onclick="toggleBaseline('signguard')">
+            <input type="checkbox" id="p1-check-signguard">
+            <label for="p1-check-signguard">signguard</label>
+            <span class="cb-status collapsed-tag" id="p1-status-signguard">collapsed</span>
+          </div>
+        </div>
+        <div class="decision-computed" id="p1-carry-forward">
+          Carry forward to Phase 4+: <strong>FedAvg</strong> (always) + <strong>FactorGraphs</strong> (always). No baselines surviving &mdash; comparisons will be FactorGraphs vs FedAvg only.
+        </div>
+        <div id="p1-cmd-area">
+          <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Record decision + run next phases</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p1-decide-cmd-text">python experiment_runner.py --decide 1</span>
+          </div>
+          <div style="margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Next: Run Phase 2 + Phase 3</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p1-next-cmd-text">python experiment_runner.py --phase 2 && python experiment_runner.py --phase 3</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="flow-connector">
@@ -614,6 +1144,30 @@
         <div>Runs: <span class="meta-value">2</span></div>
         <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 1</span></span></div>
         <div>Fills: <span class="meta-value">Table 1 (FactorGraphs row)</span></div>
+      </div>
+
+      <!-- Decision Panel: Phase 2 -->
+      <div class="decision-panel" id="decision-panel-2">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 2</div>
+        <div class="decision-panel-description" id="p2-description">Does FactorGraphs recover plaintext-level accuracy under grouped secure aggregation?</div>
+        <div class="decision-btn-group">
+          <button class="decision-btn btn-yes" id="p2-btn-yes" onclick="setPhase2Decision(true)">Yes &mdash; FactorGraphs works</button>
+          <button class="decision-btn btn-no" id="p2-btn-no" onclick="setPhase2Decision(false)">No &mdash; needs tuning</button>
+        </div>
+        <div class="decision-warning" id="p2-warning">
+          FactorGraphs did not match baseline accuracy. Stop here and tune belief propagation parameters, observation function, or exclusion threshold before proceeding to Phase 3+.
+        </div>
+        <div id="p2-cmd-area" style="display:none;">
+          <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Record decision + run Phase 3</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p2-decide-cmd-text">python experiment_runner.py --decide 2</span>
+          </div>
+          <div class="cmd-block" id="p2-next-cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p2-next-cmd-text">python experiment_runner.py --phase 3</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -644,6 +1198,30 @@
         <div>Runs: <span class="meta-value">4</span></div>
         <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 1</span></span></div>
         <div>Fills: <span class="meta-value">Fig. 2</span></div>
+      </div>
+
+      <!-- Decision Panel: Phase 3 -->
+      <div class="decision-panel" id="decision-panel-3">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 3</div>
+        <div class="decision-panel-description" id="p3-description">Can FactorGraphs suppress the Scaling Backdoor without destroying model utility?</div>
+        <div class="decision-btn-group">
+          <button class="decision-btn btn-yes" id="p3-btn-yes" onclick="setPhase3Decision(true)">Yes &mdash; suppresses backdoor</button>
+          <button class="decision-btn btn-no" id="p3-btn-no" onclick="setPhase3Decision(false)">No &mdash; backdoor persists</button>
+        </div>
+        <div class="decision-warning" id="p3-warning">
+          FactorGraphs does not suppress the Scaling Backdoor effectively. The ACC vs ASR trade-off needs investigation before scaling to Phase 4.
+        </div>
+        <div id="p3-cmd-area" style="display:none;">
+          <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Record decision + run Phase 4</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p3-decide-cmd-text">python experiment_runner.py --decide 3</span>
+          </div>
+          <div class="cmd-block" id="p3-next-cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p3-next-cmd-text">python experiment_runner.py --phase 4</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -676,6 +1254,24 @@
         <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 2</span> <span class="dep-tag">Phase 3</span></span></div>
         <div>Fills: <span class="meta-value">&beta;-sweep figure + non-IID columns</span></div>
       </div>
+
+      <!-- Decision Panel: Phase 4 -->
+      <div class="decision-panel" id="decision-panel-4">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 4 (Computed)</div>
+        <div class="decision-panel-description" id="p4-description">Non-IID robustness sweep. The experiments below are computed from Phase 0 anchor and Phase 1 surviving baselines. No input needed &mdash; this is a full sweep.</div>
+        <div class="decision-computed" id="p4-computed-info">
+          <div id="p4-methods-list">Methods: <strong>FactorGraphs</strong> + <strong>FedAvg</strong> + <em>(surviving baselines from Phase 1)</em></div>
+          <div id="p4-anchor-info" style="margin-top: 4px;">Anchor: <em>(select in Phase 0)</em></div>
+          <div id="p4-run-count" style="margin-top: 4px;">Runs: <strong>methods x 2 attacks x 4 beta values</strong> = <strong id="p4-run-number">24</strong></div>
+        </div>
+        <div id="p4-cmd-area">
+          <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Run Phase 5</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p4-next-cmd-text">python experiment_runner.py --phase 5</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="flow-connector">
@@ -704,6 +1300,33 @@
         <div>Runs: <span class="meta-value">6</span></div>
         <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 4</span></span></div>
         <div>Fills: <span class="meta-value">MNIST / CIFAR-10 columns</span></div>
+      </div>
+
+      <!-- Decision Panel: Phase 5 -->
+      <div class="decision-panel" id="decision-panel-5">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 5</div>
+        <div class="decision-panel-description" id="p5-description">Select the second dataset for generalization testing. This should be different from the Phase 0 anchor dataset.</div>
+        <div class="decision-radio-group" id="p5-radios">
+          <div class="decision-radio-item" id="p5-radio-MNIST" onclick="setPhase5Dataset('MNIST')">
+            <input type="radio" name="p5dataset" id="p5-r-MNIST" value="MNIST">
+            <label for="p5-r-MNIST">MNIST</label>
+          </div>
+          <div class="decision-radio-item" id="p5-radio-CIFAR10" onclick="setPhase5Dataset('CIFAR10')">
+            <input type="radio" name="p5dataset" id="p5-r-CIFAR10" value="CIFAR10">
+            <label for="p5-r-CIFAR10">CIFAR10</label>
+          </div>
+        </div>
+        <div id="p5-cmd-area" style="display:none;">
+          <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Record decision + run Phase 6</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p5-decide-cmd-text">python experiment_runner.py --decide 5</span>
+          </div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p5-next-cmd-text">python experiment_runner.py --phase 6</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -735,6 +1358,39 @@
         <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 2</span></span></div>
         <div>Fills: <span class="meta-value">Sensitivity heatmap (new table/figure)</span></div>
       </div>
+
+      <!-- Decision Panel: Phase 6 -->
+      <div class="decision-panel" id="decision-panel-6">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 6 (Read-Only)</div>
+        <div class="decision-panel-description" id="p6-description">Sensitivity grid: 4 group sizes x 3 Byzantine counts = 12 runs. Uses the anchor from Phase 0.</div>
+        <div class="decision-readonly">
+          <div class="ro-label">Sensitivity Grid (k x nbyz)</div>
+          <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 8px;" id="p6-anchor-note">Anchor dataset: <em>(select in Phase 0)</em></div>
+          <table style="width: 100%; max-width: 400px; border-collapse: collapse; font-family: var(--mono); font-size: 12px;">
+            <thead>
+              <tr>
+                <th style="padding: 6px 10px; text-align: left; color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;"></th>
+                <th style="padding: 6px 10px; text-align: center; color: var(--text-muted); font-size: 10px;">nbyz=10</th>
+                <th style="padding: 6px 10px; text-align: center; color: var(--text-muted); font-size: 10px;">nbyz=20</th>
+                <th style="padding: 6px 10px; text-align: center; color: var(--text-muted); font-size: 10px;">nbyz=30</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="padding:4px 10px; font-weight:600;">k=5</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td></tr>
+              <tr><td style="padding:4px 10px; font-weight:600;">k=10</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td><td style="padding:4px 10px; text-align:center; background:var(--blue-dim); border:1px solid var(--blue); border-radius:3px;">anchor</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td></tr>
+              <tr><td style="padding:4px 10px; font-weight:600;">k=20</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td></tr>
+              <tr><td style="padding:4px 10px; font-weight:600;">k=30</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td><td style="padding:4px 10px; text-align:center; background:var(--amber-dim); border-radius:3px;">edge</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="p6-cmd-area">
+          <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Run Phase 7</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p6-next-cmd-text">python experiment_runner.py --phase 7</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="flow-connector">
@@ -764,6 +1420,31 @@
         <div>Runs: <span class="meta-value">4</span></div>
         <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 2</span></span></div>
         <div>Fills: <span class="meta-value">Architecture comparison table (new)</span></div>
+      </div>
+
+      <!-- Decision Panel: Phase 7 -->
+      <div class="decision-panel" id="decision-panel-7">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 7 (Read-Only)</div>
+        <div class="decision-panel-description" id="p7-description">Architecture comparison: tests all architectures except the Phase 0 anchor architecture.</div>
+        <div class="decision-readonly">
+          <div class="ro-label">Architectures to test</div>
+          <div class="ro-grid" id="p7-arch-grid">
+            <div class="ro-grid-item" id="p7-arch-mobilenet_v3_small">mobilenet_v3_small</div>
+            <div class="ro-grid-item" id="p7-arch-resnet18">resnet18</div>
+            <div class="ro-grid-item" id="p7-arch-eff_net">eff_net</div>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;" id="p7-anchor-arch-note">Anchor arch: <em>(select in Phase 0)</em> &mdash; will be excluded from this phase.</div>
+        </div>
+        <div class="decision-complete" id="p7-completion" style="display:none;">
+          All 8 phases planned. Run the full pipeline to produce all paper artifacts.
+        </div>
+        <div id="p7-cmd-area">
+          <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Completion</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p7-final-cmd-text">python experiment_runner.py --status</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1142,10 +1823,506 @@
     </div>
   </div>
 
+  <!-- ============ STICKY COMMAND BAR ============ -->
+  <div class="sticky-command-bar" id="sticky-command-bar">
+    <div class="scb-section" style="max-width: 200px;">
+      <div class="scb-label">Phase Status</div>
+      <div class="scb-phases" id="scb-phase-dots">
+        <div class="scb-phase-dot current" id="scb-dot-0" title="Phase 0">0</div>
+        <div class="scb-phase-dot" id="scb-dot-1" title="Phase 1">1</div>
+        <div class="scb-phase-dot" id="scb-dot-2" title="Phase 2">2</div>
+        <div class="scb-phase-dot" id="scb-dot-3" title="Phase 3">3</div>
+        <div class="scb-phase-dot" id="scb-dot-4" title="Phase 4">4</div>
+        <div class="scb-phase-dot" id="scb-dot-5" title="Phase 5">5</div>
+        <div class="scb-phase-dot" id="scb-dot-6" title="Phase 6">6</div>
+        <div class="scb-phase-dot" id="scb-dot-7" title="Phase 7">7</div>
+      </div>
+    </div>
+    <div class="scb-section">
+      <div class="scb-label">Next Command</div>
+      <div class="scb-next-cmd" id="scb-next-cmd">
+        <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+        <span id="scb-next-cmd-text">python experiment_runner.py --phase 0</span>
+      </div>
+    </div>
+    <div class="scb-section">
+      <div class="scb-label">phase_config.json</div>
+      <div class="scb-config-snippet" id="scb-config-snippet">
+        <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+        <span id="scb-config-text">{
+  "decisions": {}
+}</span>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ FOOTER ============ -->
   <div style="text-align: center; padding: 32px 0 16px; font-size: 12px; color: var(--text-muted); font-family: var(--mono);">
     FactorGraphs Experiment Plan &middot; ~86 runs vs 6,750 full sweep &middot; 8 phases &middot; 98.7% reduction
   </div>
+
+  <!-- ============ INTERACTIVE SCRIPT ============ -->
+  <script>
+  (function() {
+    'use strict';
+
+    // =============================================================
+    // STATE
+    // =============================================================
+    var state = {
+      phase0: { dataset: null, arch: null, decided: false },
+      phase1: { baselines: { krum: false, shieldfl: false, signguard: false }, decided: false },
+      phase2: { works: null, decided: false },
+      phase3: { works: null, decided: false },
+      phase4: { decided: false },
+      phase5: { dataset: null, decided: false },
+      phase6: { decided: false },
+      phase7: { decided: false }
+    };
+
+    // Display name mapping
+    var datasetDisplayNames = {
+      'MNIST': 'MNIST',
+      'FEMNIST': 'FEMNIST',
+      'CIFAR10': 'CIFAR10'
+    };
+    var archDisplayNames = {
+      'mobilenet_v3_small': 'MobileNetV3',
+      'resnet18': 'ResNet-18',
+      'eff_net': 'EfficientNet'
+    };
+    var archCodeNames = {
+      'MobileNetV3': 'mobilenet_v3_small',
+      'ResNet-18': 'resnet18',
+      'EfficientNet': 'eff_net'
+    };
+    var datasetCodeNames = {
+      'MNIST': 'MNIST',
+      'FEMNIST': 'FEMNIST',
+      'CIFAR-10': 'CIFAR10'
+    };
+
+    // Column headers and row labels from the grid
+    var gridArchHeaders = ['MobileNetV3', 'ResNet-18', 'EfficientNet'];
+    var gridDatasetRows = ['MNIST', 'FEMNIST', 'CIFAR-10'];
+
+    // =============================================================
+    // MAKE PHASE 0 GRID CELLS CLICKABLE
+    // =============================================================
+    function initPhase0Grid() {
+      // Find the run matrix grid: it has style "grid-template-columns: 100px repeat(3, 1fr)"
+      var grids = document.querySelectorAll('[style*="grid-template-columns: 100px repeat(3, 1fr)"]');
+      if (grids.length === 0) return;
+      var grid = grids[0];
+      var children = grid.children;
+      // Layout: 4 columns (label + 3 data). Row 0 = header, Rows 1-3 = data rows
+      // children[0] = empty, children[1-3] = headers
+      // children[4] = MNIST label, children[5-7] = data cells
+      // children[8] = FEMNIST label, children[9-11] = data cells
+      // children[12] = CIFAR-10 label, children[13-15] = data cells
+      for (var row = 0; row < 3; row++) {
+        for (var col = 0; col < 3; col++) {
+          var cellIndex = (row + 1) * 4 + (col + 1);
+          var cell = children[cellIndex];
+          cell.classList.add('grid-cell-clickable');
+          cell.dataset.row = row;
+          cell.dataset.col = col;
+          cell.addEventListener('click', function() {
+            var r = parseInt(this.dataset.row);
+            var c = parseInt(this.dataset.col);
+            selectPhase0Cell(r, c);
+          });
+        }
+      }
+    }
+
+    function selectPhase0Cell(row, col) {
+      var datasetLabel = gridDatasetRows[row];
+      var archLabel = gridArchHeaders[col];
+      var datasetCode = datasetCodeNames[datasetLabel] || datasetLabel;
+      var archCode = archCodeNames[archLabel] || archLabel;
+
+      state.phase0.dataset = datasetCode;
+      state.phase0.arch = archCode;
+      state.phase0.decided = true;
+
+      // Update grid visual
+      var grids = document.querySelectorAll('[style*="grid-template-columns: 100px repeat(3, 1fr)"]');
+      if (grids.length === 0) return;
+      var grid = grids[0];
+      var children = grid.children;
+      for (var r = 0; r < 3; r++) {
+        for (var c = 0; c < 3; c++) {
+          var idx = (r + 1) * 4 + (c + 1);
+          children[idx].classList.remove('selected');
+        }
+      }
+      var selectedIdx = (row + 1) * 4 + (col + 1);
+      children[selectedIdx].classList.add('selected');
+
+      // Update selection display
+      var selEl = document.getElementById('p0-selection');
+      var selText = document.getElementById('p0-selection-text');
+      selEl.classList.remove('empty');
+      selText.textContent = 'Selected: ' + datasetCode + ' + ' + archCode;
+
+      // Show commands
+      var cmdArea = document.getElementById('p0-cmd-area');
+      cmdArea.style.display = 'block';
+      document.getElementById('p0-decide-cmd-text').textContent =
+        'python experiment_runner.py --decide 0';
+      document.getElementById('p0-next-cmd-text').textContent =
+        'python experiment_runner.py --phase 1';
+
+      cascadeUpdates();
+    }
+
+    // =============================================================
+    // PHASE 1: BASELINE CHECKBOXES
+    // =============================================================
+    window.toggleBaseline = function(name) {
+      var checkbox = document.getElementById('p1-check-' + name);
+      checkbox.checked = !checkbox.checked;
+      state.phase1.baselines[name] = checkbox.checked;
+      state.phase1.decided = true;
+
+      var item = document.getElementById('p1-cb-' + name);
+      var status = document.getElementById('p1-status-' + name);
+      if (checkbox.checked) {
+        item.classList.remove('collapsed');
+        item.classList.add('checked');
+        status.className = 'cb-status survived';
+        status.textContent = 'survived';
+      } else {
+        item.classList.remove('checked');
+        item.classList.add('collapsed');
+        status.className = 'cb-status collapsed-tag';
+        status.textContent = 'collapsed';
+      }
+
+      updatePhase1CarryForward();
+      cascadeUpdates();
+    };
+
+    function updatePhase1CarryForward() {
+      var survivors = [];
+      if (state.phase1.baselines.krum) survivors.push('Krum');
+      if (state.phase1.baselines.shieldfl) survivors.push('ShieldFL');
+      if (state.phase1.baselines.signguard) survivors.push('SignGuard');
+
+      var el = document.getElementById('p1-carry-forward');
+      var text = 'Carry forward to Phase 4+: <strong>FedAvg</strong> (always) + <strong>FactorGraphs</strong> (always)';
+      if (survivors.length > 0) {
+        text += ' + <strong>' + survivors.join('</strong> + <strong>') + '</strong>.';
+        text += ' Total methods: ' + (2 + survivors.length);
+      } else {
+        text += '. No baselines surviving — comparisons will be FactorGraphs vs FedAvg only.';
+      }
+      el.innerHTML = text;
+    }
+
+    // =============================================================
+    // PHASE 2: YES/NO BUTTONS
+    // =============================================================
+    window.setPhase2Decision = function(works) {
+      state.phase2.works = works;
+      state.phase2.decided = true;
+
+      var btnYes = document.getElementById('p2-btn-yes');
+      var btnNo = document.getElementById('p2-btn-no');
+      var warning = document.getElementById('p2-warning');
+      var cmdArea = document.getElementById('p2-cmd-area');
+
+      btnYes.classList.remove('active');
+      btnNo.classList.remove('active');
+
+      if (works) {
+        btnYes.classList.add('active');
+        warning.classList.remove('visible');
+        cmdArea.style.display = 'block';
+      } else {
+        btnNo.classList.add('active');
+        warning.classList.add('visible');
+        cmdArea.style.display = 'block';
+        document.getElementById('p2-next-cmd-block').style.display = 'none';
+      }
+      if (works) {
+        document.getElementById('p2-next-cmd-block').style.display = 'block';
+      }
+
+      cascadeUpdates();
+    };
+
+    // =============================================================
+    // PHASE 3: YES/NO BUTTONS
+    // =============================================================
+    window.setPhase3Decision = function(works) {
+      state.phase3.works = works;
+      state.phase3.decided = true;
+
+      var btnYes = document.getElementById('p3-btn-yes');
+      var btnNo = document.getElementById('p3-btn-no');
+      var warning = document.getElementById('p3-warning');
+      var cmdArea = document.getElementById('p3-cmd-area');
+
+      btnYes.classList.remove('active');
+      btnNo.classList.remove('active');
+
+      if (works) {
+        btnYes.classList.add('active');
+        warning.classList.remove('visible');
+        cmdArea.style.display = 'block';
+      } else {
+        btnNo.classList.add('active');
+        warning.classList.add('visible');
+        cmdArea.style.display = 'block';
+        document.getElementById('p3-next-cmd-block').style.display = 'none';
+      }
+      if (works) {
+        document.getElementById('p3-next-cmd-block').style.display = 'block';
+      }
+
+      cascadeUpdates();
+    };
+
+    // =============================================================
+    // PHASE 5: RADIO BUTTONS
+    // =============================================================
+    window.setPhase5Dataset = function(dataset) {
+      state.phase5.dataset = dataset;
+      state.phase5.decided = true;
+
+      // Update radio visual
+      var items = document.querySelectorAll('#p5-radios .decision-radio-item');
+      items.forEach(function(item) { item.classList.remove('selected'); });
+      document.getElementById('p5-radio-' + dataset).classList.add('selected');
+      document.getElementById('p5-r-' + dataset).checked = true;
+
+      // Show commands
+      document.getElementById('p5-cmd-area').style.display = 'block';
+
+      cascadeUpdates();
+    };
+
+    // =============================================================
+    // CASCADE UPDATES
+    // =============================================================
+    function cascadeUpdates() {
+      var ds = state.phase0.dataset;
+      var arch = state.phase0.arch;
+      var dsDisplay = ds ? (archDisplayNames[ds] || ds) : null;
+      var archDisplay = arch ? (archDisplayNames[arch] || arch) : null;
+      var anchorStr = ds && arch ? (ds + ' + ' + archDisplay) : null;
+
+      // -- Update Phase 1 description with anchor --
+      if (anchorStr) {
+        document.getElementById('p1-description').innerHTML =
+          'Check baselines that <strong>survived</strong> grouping on <strong>' + anchorStr +
+          '</strong> (unchecked = collapsed). Collapsed baselines will be dropped from Phase 4+ comparisons.';
+      }
+
+      // -- Update Phase 2 description --
+      if (anchorStr) {
+        document.getElementById('p2-description').textContent =
+          'Does FactorGraphs recover plaintext-level accuracy on ' + anchorStr + ' under grouped secure aggregation?';
+      }
+
+      // -- Update Phase 3 description --
+      if (anchorStr) {
+        document.getElementById('p3-description').textContent =
+          'Can FactorGraphs suppress the Scaling Backdoor on ' + anchorStr + ' without destroying model utility?';
+      }
+
+      // -- Update Phase 4 computed info --
+      var survivors = [];
+      if (state.phase1.baselines.krum) survivors.push('Krum');
+      if (state.phase1.baselines.shieldfl) survivors.push('ShieldFL');
+      if (state.phase1.baselines.signguard) survivors.push('SignGuard');
+      var methodCount = 2 + survivors.length; // FactorGraphs + FedAvg + survivors
+      var runCount = methodCount * 2 * 4; // methods x 2 attacks x 4 beta
+
+      var methodsHtml = 'Methods: <strong>FactorGraphs</strong> + <strong>FedAvg</strong>';
+      if (survivors.length > 0) {
+        methodsHtml += ' + <strong>' + survivors.join('</strong> + <strong>') + '</strong>';
+      }
+      document.getElementById('p4-methods-list').innerHTML = methodsHtml;
+
+      if (anchorStr) {
+        document.getElementById('p4-anchor-info').innerHTML = 'Anchor: <strong>' + anchorStr + '</strong>';
+        document.getElementById('p4-description').textContent =
+          'Non-IID robustness sweep on ' + anchorStr + '. The experiments below are computed from Phase 0 anchor and Phase 1 surviving baselines.';
+      }
+      document.getElementById('p4-run-number').textContent = runCount;
+      document.getElementById('p4-run-count').innerHTML =
+        'Runs: <strong>' + methodCount + ' methods x 2 attacks x 4 beta</strong> = <strong>' + runCount + '</strong>';
+
+      // -- Update Phase 5 description --
+      if (ds) {
+        var otherDatasets = ['MNIST', 'FEMNIST', 'CIFAR10'].filter(function(d) { return d !== ds; });
+        document.getElementById('p5-description').textContent =
+          'Select the second dataset for generalization testing (anchor is ' + ds + '). Choose from: ' + otherDatasets.join(', ') + '.';
+      }
+
+      // -- Update Phase 6 description --
+      if (anchorStr) {
+        document.getElementById('p6-description').textContent =
+          'Sensitivity grid on ' + anchorStr + ': 4 group sizes x 3 Byzantine counts = 12 runs.';
+        document.getElementById('p6-anchor-note').innerHTML =
+          'Anchor dataset: <strong>' + anchorStr + '</strong>';
+      }
+
+      // -- Update Phase 7 description --
+      if (arch) {
+        var allArchs = ['mobilenet_v3_small', 'resnet18', 'eff_net'];
+        var testArchs = allArchs.filter(function(a) { return a !== arch; });
+        document.getElementById('p7-description').textContent =
+          'Architecture comparison: tests ' + testArchs.map(function(a) { return archDisplayNames[a] || a; }).join(' and ') +
+          ' (excluding anchor ' + (archDisplayNames[arch] || arch) + ').';
+        document.getElementById('p7-anchor-arch-note').innerHTML =
+          'Anchor arch: <strong>' + (archDisplayNames[arch] || arch) + '</strong> — will be excluded from this phase.';
+
+        // Visually mark anchor arch as excluded
+        allArchs.forEach(function(a) {
+          var el = document.getElementById('p7-arch-' + a);
+          if (el) {
+            if (a === arch) {
+              el.style.opacity = '0.35';
+              el.style.textDecoration = 'line-through';
+            } else {
+              el.style.opacity = '1';
+              el.style.textDecoration = 'none';
+            }
+          }
+        });
+      }
+
+      // -- Show Phase 7 completion if all early phases are decided --
+      if (state.phase0.decided && state.phase1.decided && state.phase2.decided && state.phase3.decided) {
+        document.getElementById('p7-completion').style.display = 'block';
+      } else {
+        document.getElementById('p7-completion').style.display = 'none';
+      }
+
+      // -- Update sticky bar --
+      updateStickyBar();
+    }
+
+    // =============================================================
+    // STICKY BAR
+    // =============================================================
+    function updateStickyBar() {
+      // Phase dots
+      var phaseStates = [
+        state.phase0.decided,
+        state.phase1.decided,
+        state.phase2.decided,
+        state.phase3.decided,
+        state.phase4.decided || (state.phase2.decided && state.phase3.decided), // auto-decided
+        state.phase5.decided,
+        state.phase6.decided || state.phase2.decided, // auto from P2
+        state.phase7.decided || state.phase2.decided  // auto from P2
+      ];
+
+      // Find first undecided
+      var nextPhase = -1;
+      for (var i = 0; i < 8; i++) {
+        var dot = document.getElementById('scb-dot-' + i);
+        dot.classList.remove('decided', 'current');
+        if (phaseStates[i]) {
+          dot.classList.add('decided');
+        } else if (nextPhase === -1) {
+          nextPhase = i;
+          dot.classList.add('current');
+        }
+      }
+
+      // Next command
+      var nextCmdEl = document.getElementById('scb-next-cmd-text');
+      if (nextPhase === -1) {
+        nextCmdEl.textContent = 'python experiment_runner.py --status  # All phases planned!';
+      } else if (nextPhase === 0) {
+        nextCmdEl.textContent = 'python experiment_runner.py --phase 0';
+      } else {
+        // If previous phase is decided, show next phase run command
+        nextCmdEl.textContent = 'python experiment_runner.py --phase ' + nextPhase;
+      }
+
+      // Config JSON
+      var config = { decisions: {} };
+      if (state.phase0.decided) {
+        config.decisions['phase_0'] = {
+          anchor_dataset: state.phase0.dataset,
+          anchor_arch: state.phase0.arch
+        };
+      }
+      if (state.phase1.decided) {
+        config.decisions['phase_1'] = {
+          surviving_baselines: Object.keys(state.phase1.baselines).filter(function(k) {
+            return state.phase1.baselines[k];
+          })
+        };
+      }
+      if (state.phase2.decided) {
+        config.decisions['phase_2'] = { factorgraphs_works: state.phase2.works };
+      }
+      if (state.phase3.decided) {
+        config.decisions['phase_3'] = { suppresses_backdoor: state.phase3.works };
+      }
+      if (state.phase5.decided) {
+        config.decisions['phase_5'] = { second_dataset: state.phase5.dataset };
+      }
+
+      document.getElementById('scb-config-text').textContent = JSON.stringify(config, null, 2);
+    }
+
+    // =============================================================
+    // COPY COMMAND HELPER
+    // =============================================================
+    window.copyCmd = function(btn) {
+      var container = btn.parentElement;
+      var span = container.querySelector('span');
+      var text = span ? span.textContent : container.textContent;
+      // Strip the "Copy" button text if accidentally included
+      text = text.replace(/^Copy\s*/, '').trim();
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function() {
+            btn.textContent = 'Copy';
+            btn.classList.remove('copied');
+          }, 1500);
+        });
+      } else {
+        // Fallback
+        var textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try { document.execCommand('copy'); } catch(e) {}
+        document.body.removeChild(textarea);
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(function() {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 1500);
+      }
+    };
+
+    // =============================================================
+    // INIT
+    // =============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+      initPhase0Grid();
+      updateStickyBar();
+    });
+
+  })();
+  </script>
 
 </body>
 </html>
