@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920">
+  <title>Why Grouping Fixes Krum</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #F8F9FB; --bg-card: #FFFFFF; --bg-elevated: #F0F1F4;
+      --border: #E0E2E8; --text: #1A1D26; --text-dim: #5A5E6E; --text-muted: #8E92A0;
+      --accent: #0E9A7E; --accent-dim: rgba(14,154,126,0.08);
+      --red: #D9453E; --red-dim: rgba(217,69,62,0.07);
+      --blue: #3B6FD6; --blue-dim: rgba(59,111,214,0.08);
+      --purple: #8B5CC4; --purple-dim: rgba(139,92,196,0.08);
+      --amber: #C88A1A; --amber-dim: rgba(200,138,26,0.08);
+      --font: 'DM Sans', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+      --radius: 10px; --radius-sm: 6px;
+    }
+    body {
+      background: var(--bg); color: var(--text); font-family: var(--font);
+      line-height: 1.55; -webkit-font-smoothing: antialiased;
+      max-width: 1100px; margin: 0 auto; padding: 40px 48px;
+    }
+    .page-header { margin-bottom: 32px; }
+    .page-header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 4px; }
+    .page-header p { font-size: 13px; color: var(--text-dim); }
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 20px;
+    }
+    .card-title {
+      font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 14px;
+    }
+    .num { font-family: var(--mono); }
+    .pos { color: var(--accent); font-weight: 600; }
+    .neg { color: var(--red); font-weight: 600; }
+
+    /* Diagram styles */
+    .diagram {
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+      padding: 20px 0; flex-wrap: wrap;
+    }
+    .diagram-step {
+      text-align: center; padding: 14px 18px; border-radius: var(--radius-sm);
+      font-size: 13px; min-width: 120px;
+    }
+    .diagram-arrow { color: var(--text-muted); font-size: 20px; }
+    .diagram-label {
+      font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 6px;
+    }
+    .diagram-value {
+      font-family: var(--mono); font-size: 22px; font-weight: 700;
+    }
+    .diagram-detail {
+      font-size: 11px; color: var(--text-dim); margin-top: 4px;
+    }
+
+    /* Dots visualization */
+    .dots-container {
+      display: flex; gap: 32px; justify-content: center; padding: 16px 0;
+    }
+    .dots-panel { text-align: center; }
+    .dots-panel-label {
+      font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 10px;
+    }
+    .dots-grid {
+      display: inline-grid; gap: 3px; padding: 12px; background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+    .dot-honest { background: var(--blue); }
+    .dot-byz { background: var(--red); }
+    .dot-group-border {
+      border: 2px solid var(--accent); border-radius: 4px; padding: 2px;
+      display: inline-grid; gap: 2px;
+    }
+
+    /* Comparison bars */
+    .bar-compare { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .bar-compare-label {
+      width: 160px; text-align: right; font-family: var(--mono); font-size: 12px;
+      color: var(--text-dim); flex-shrink: 0;
+    }
+    .bar-compare-track {
+      flex: 1; height: 28px; background: var(--bg-elevated); border-radius: 4px;
+      overflow: hidden; position: relative;
+    }
+    .bar-compare-fill {
+      height: 100%; border-radius: 4px; display: flex; align-items: center;
+      padding-left: 8px; font-family: var(--mono); font-size: 11px; color: #fff;
+      font-weight: 500; transition: width 0.3s;
+    }
+
+    /* VS layout */
+    .vs-grid {
+      display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center;
+    }
+    .vs-divider {
+      font-family: var(--mono); font-size: 14px; color: var(--text-muted);
+      text-align: center; padding: 0 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <h1>Why Grouping Fixes Krum</h1>
+    <p>CIFAR10 / ResNet-18 &middot; 500 workers &middot; nbyz=50 (10%) &middot; k=10</p>
+  </div>
+
+  <!-- 1. The result -->
+  <div class="card">
+    <div class="card-title">The result</div>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; text-align: center;">
+      <div style="background: var(--red-dim); border-radius: var(--radius-sm); padding: 16px;">
+        <div class="diagram-label">Krum ungrouped</div>
+        <div class="diagram-value neg">45%</div>
+        <div class="diagram-detail">clean accuracy</div>
+      </div>
+      <div style="background: var(--accent-dim); border-radius: var(--radius-sm); padding: 16px;">
+        <div class="diagram-label">Krum grouped</div>
+        <div class="diagram-value pos">66%</div>
+        <div class="diagram-detail">clean accuracy</div>
+      </div>
+      <div style="background: var(--red-dim); border-radius: var(--radius-sm); padding: 16px;">
+        <div class="diagram-label">Krum ungrouped + LF</div>
+        <div class="diagram-value neg">45%</div>
+        <div class="diagram-detail">under attack</div>
+      </div>
+      <div style="background: var(--accent-dim); border-radius: var(--radius-sm); padding: 16px;">
+        <div class="diagram-label">Krum grouped + LF</div>
+        <div class="diagram-value pos">69%</div>
+        <div class="diagram-detail">under attack</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. How Krum works -->
+  <div class="card">
+    <div class="card-title">How Krum works</div>
+    <div class="diagram">
+      <div class="diagram-step" style="background: var(--bg-elevated);">
+        <div class="diagram-label">Input</div>
+        <div style="font-size: 14px; font-weight: 600;">n gradients</div>
+      </div>
+      <div class="diagram-arrow">&rarr;</div>
+      <div class="diagram-step" style="background: var(--blue-dim);">
+        <div class="diagram-label">Compute</div>
+        <div style="font-size: 14px; font-weight: 600;">pairwise distances</div>
+      </div>
+      <div class="diagram-arrow">&rarr;</div>
+      <div class="diagram-step" style="background: var(--purple-dim);">
+        <div class="diagram-label">Select</div>
+        <div style="font-size: 14px; font-weight: 600;">1 closest to majority</div>
+      </div>
+      <div class="diagram-arrow">&rarr;</div>
+      <div class="diagram-step" style="background: var(--accent-dim);">
+        <div class="diagram-label">Update</div>
+        <div style="font-size: 14px; font-weight: 600;">model with 1 gradient</div>
+      </div>
+    </div>
+    <div style="text-align: center; font-size: 13px; color: var(--text-dim);">
+      Krum <strong>selects one gradient</strong>, not averages. No noise cancellation.
+    </div>
+  </div>
+
+  <!-- 3. The problem: noise -->
+  <div class="card">
+    <div class="card-title">The problem &mdash; gradient noise at scale</div>
+    <div class="vs-grid">
+      <div>
+        <div style="text-align: center; margin-bottom: 12px;">
+          <div class="diagram-label">FedAvg: average 500 gradients</div>
+          <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">noise cancels out &rarr; clean signal</div>
+        </div>
+        <div style="display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; padding: 12px; background: var(--bg-elevated); border-radius: var(--radius-sm);">
+          <svg width="200" height="60" viewBox="0 0 200 60">
+            <!-- Many small noisy arrows averaging to one clean arrow -->
+            <g opacity="0.2">
+              <line x1="10" y1="30" x2="30" y2="15" stroke="var(--blue)" stroke-width="1"/>
+              <line x1="10" y1="30" x2="35" y2="40" stroke="var(--blue)" stroke-width="1"/>
+              <line x1="10" y1="30" x2="25" y2="50" stroke="var(--blue)" stroke-width="1"/>
+              <line x1="10" y1="30" x2="40" y2="25" stroke="var(--blue)" stroke-width="1"/>
+              <line x1="10" y1="30" x2="20" y2="10" stroke="var(--blue)" stroke-width="1"/>
+              <line x1="10" y1="30" x2="38" y2="35" stroke="var(--blue)" stroke-width="1"/>
+              <line x1="10" y1="30" x2="30" y2="45" stroke="var(--blue)" stroke-width="1"/>
+              <line x1="10" y1="30" x2="28" y2="20" stroke="var(--blue)" stroke-width="1"/>
+            </g>
+            <text x="55" y="34" font-family="var(--mono)" font-size="16" fill="var(--text-muted)">&rarr;</text>
+            <line x1="80" y1="30" x2="190" y2="30" stroke="var(--blue)" stroke-width="3" marker-end="url(#arrowBlue)"/>
+            <defs><marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="var(--blue)"/></marker></defs>
+            <text x="100" y="22" font-family="var(--mono)" font-size="9" fill="var(--blue)">clean average</text>
+          </svg>
+        </div>
+      </div>
+      <div class="vs-divider">vs</div>
+      <div>
+        <div style="text-align: center; margin-bottom: 12px;">
+          <div class="diagram-label">Krum: pick 1 of 500 gradients</div>
+          <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">picks one noisy sample &rarr; noisy signal</div>
+        </div>
+        <div style="display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; padding: 12px; background: var(--bg-elevated); border-radius: var(--radius-sm);">
+          <svg width="200" height="60" viewBox="0 0 200 60">
+            <g opacity="0.2">
+              <line x1="10" y1="30" x2="30" y2="15" stroke="var(--red)" stroke-width="1"/>
+              <line x1="10" y1="30" x2="35" y2="40" stroke="var(--red)" stroke-width="1"/>
+              <line x1="10" y1="30" x2="25" y2="50" stroke="var(--red)" stroke-width="1"/>
+              <line x1="10" y1="30" x2="40" y2="25" stroke="var(--red)" stroke-width="1"/>
+              <line x1="10" y1="30" x2="20" y2="10" stroke="var(--red)" stroke-width="1"/>
+              <line x1="10" y1="30" x2="38" y2="35" stroke="var(--red)" stroke-width="1"/>
+              <line x1="10" y1="30" x2="30" y2="45" stroke="var(--red)" stroke-width="1"/>
+            </g>
+            <text x="55" y="34" font-family="var(--mono)" font-size="16" fill="var(--text-muted)">&rarr;</text>
+            <line x1="80" y1="30" x2="170" y2="18" stroke="var(--red)" stroke-width="3" marker-end="url(#arrowRed)"/>
+            <defs><marker id="arrowRed" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="var(--red)"/></marker></defs>
+            <text x="100" y="50" font-family="var(--mono)" font-size="9" fill="var(--red)">one noisy pick</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div style="text-align: center; margin-top: 12px; font-size: 12px; color: var(--text-dim);">
+      Each worker: <span class="num">32 samples</span> &rarr; high variance gradient. FedAvg averages out the noise. Krum does not.
+    </div>
+  </div>
+
+  <!-- 4. The fix: grouping -->
+  <div class="card">
+    <div class="card-title">The fix &mdash; grouping reduces noise before selection</div>
+    <div class="diagram" style="gap: 10px;">
+      <div class="diagram-step" style="background: var(--bg-elevated); min-width: 90px;">
+        <div class="diagram-label">500 workers</div>
+        <div style="font-size: 13px;">noisy gradients</div>
+      </div>
+      <div class="diagram-arrow">&rarr;</div>
+      <div class="diagram-step" style="background: var(--accent-dim); min-width: 110px;">
+        <div class="diagram-label">Group (k=10)</div>
+        <div style="font-size: 13px;">50 group averages</div>
+        <div class="diagram-detail">noise reduced ~3&times;</div>
+      </div>
+      <div class="diagram-arrow">&rarr;</div>
+      <div class="diagram-step" style="background: var(--purple-dim); min-width: 110px;">
+        <div class="diagram-label">Krum selects</div>
+        <div style="font-size: 13px;">1 of 50 clean grads</div>
+        <div class="diagram-detail">much better pick</div>
+      </div>
+      <div class="diagram-arrow">&rarr;</div>
+      <div class="diagram-step" style="background: var(--accent-dim); min-width: 80px;">
+        <div class="diagram-value pos" style="font-size: 18px;">66%</div>
+        <div class="diagram-detail">vs 45% ungrouped</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Under attack: best of both worlds -->
+  <div class="card">
+    <div class="card-title">Under attack &mdash; grouped Krum gets both noise reduction and Byzantine filtering</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div style="background: var(--red-dim); border-radius: var(--radius-sm); padding: 16px;">
+        <div class="diagram-label" style="color: var(--red);">FedAvg (no filtering)</div>
+        <div style="font-size: 13px; color: var(--text-dim); margin-top: 8px;">
+          Averages <strong>all 500</strong> including 50 poisoned<br>
+          Poison diluted but never removed
+        </div>
+        <div style="margin-top: 10px; font-family: var(--mono); font-size: 14px;">
+          Ungrouped: <span class="neg">51.69%</span><br>
+          Grouped: <span style="color: var(--text);">61.83%</span>
+        </div>
+      </div>
+      <div style="background: var(--accent-dim); border-radius: var(--radius-sm); padding: 16px;">
+        <div class="diagram-label" style="color: var(--accent);">Krum grouped (filter + denoise)</div>
+        <div style="font-size: 13px; color: var(--text-dim); margin-top: 8px;">
+          Groups average out noise<br>
+          Krum <strong>rejects</strong> poisoned groups entirely
+        </div>
+        <div style="margin-top: 10px; font-family: var(--mono); font-size: 14px;">
+          Ungrouped: <span class="neg">44.92%</span><br>
+          Grouped: <span class="pos">69.44%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Implication -->
+  <div class="card" style="border-color: var(--accent); border-width: 2px;">
+    <div class="card-title" style="color: var(--accent);">Implication for the paper</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 13px; color: var(--text-dim); line-height: 1.65;">
+      <div>
+        <div style="font-weight: 600; color: var(--red); margin-bottom: 4px;">Original hypothesis</div>
+        "Grouping breaks existing defences"
+      </div>
+      <div>
+        <div style="font-weight: 600; color: var(--accent); margin-bottom: 4px;">Actual finding</div>
+        "At scale (500 workers), selection-based defences <em>need</em> grouping. Grouping provides noise reduction that makes robust selection effective."
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center; padding: 20px 0 8px; font-size: 11px; color: var(--text-muted); font-family: var(--mono);">
+    Krum Grouping Analysis &middot; Phase 1 Findings &middot; CIFAR10 / ResNet-18
+  </div>
+
+</body>
+</html>

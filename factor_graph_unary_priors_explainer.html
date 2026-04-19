@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Factor Graph: Unary Priors from latent_variables</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a1f26;
+    --border: #2d333b;
+    --text: #d4d4dc;
+    --muted: #8b949e;
+    --accent: #7dd3fc;
+    --var: #5eead4;
+    --kfac: #fb923c;
+    --unary: #c084fc;
+    --edge: #64748b;
+    --edge-strong: #94a3b8;
+    --good: #4ade80;
+    --bad: #f87171;
+  }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+  }
+  h1 {
+    color: var(--accent);
+    font-size: 22px;
+    margin-bottom: 8px;
+  }
+  .lede {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px 24px;
+    margin-bottom: 22px;
+  }
+  .panel h2 {
+    color: var(--accent);
+    font-size: 16px;
+    margin: 0 0 6px;
+  }
+  .panel h2 .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .tag.current { background: #3b1f1f; color: var(--bad); border: 1px solid #7f1d1d; }
+  .tag.fixed { background: #1f3b28; color: var(--good); border: 1px solid #14532d; }
+  .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 16px;
+    line-height: 1.5;
+  }
+  svg { display: block; margin: 0 auto; }
+  .legend {
+    display: flex;
+    gap: 18px;
+    justify-content: center;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+  .swatch.circle { border-radius: 50%; }
+  .note {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: #0f172a;
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  code {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    background: #0f172a;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: var(--accent);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Factor graph: current design vs. unary priors from <code>latent_variables</code></h1>
+  <p class="lede">
+    Simplified view with <b>6 workers</b> and <b>2 groups of 3</b> (your actual run has 500 workers × groups of 10).
+    Circles are variables (one per worker, binary: benign / malicious). Squares are factors.
+  </p>
+
+  <!-- ============================================================== -->
+  <!-- PANEL 1: CURRENT -->
+  <!-- ============================================================== -->
+  <div class="panel">
+    <h2>1. Current graph (one round)<span class="tag current">what exists today</span></h2>
+    <p class="sub">
+      Only <b>k-ary group factors</b> exist — one per group, each connecting its 3 (in reality: 10) worker variables.
+      No prior is attached to individual variables, so BP starts from uniform messages every round.
+    </p>
+
+    <svg viewBox="0 0 700 280" width="100%" style="max-width:760px;">
+      <!-- group factors -->
+      <g>
+        <rect x="135" y="50" width="40" height="40" fill="var(--kfac)" rx="4"/>
+        <text x="155" y="75" fill="#000" text-anchor="middle" font-size="11" font-weight="600">f₁</text>
+        <text x="155" y="38" fill="var(--muted)" text-anchor="middle" font-size="11">group 1</text>
+
+        <rect x="485" y="50" width="40" height="40" fill="var(--kfac)" rx="4"/>
+        <text x="505" y="75" fill="#000" text-anchor="middle" font-size="11" font-weight="600">f₂</text>
+        <text x="505" y="38" fill="var(--muted)" text-anchor="middle" font-size="11">group 2</text>
+      </g>
+      <!-- edges -->
+      <g stroke="var(--edge)" stroke-width="1.5" fill="none">
+        <line x1="155" y1="90" x2="80"  y2="185"/>
+        <line x1="155" y1="90" x2="200" y2="185"/>
+        <line x1="155" y1="90" x2="320" y2="185"/>
+        <line x1="505" y1="90" x2="410" y2="185"/>
+        <line x1="505" y1="90" x2="530" y2="185"/>
+        <line x1="505" y1="90" x2="650" y2="185"/>
+      </g>
+      <!-- variables -->
+      <g>
+        <circle cx="80"  cy="200" r="22" fill="var(--var)"/>
+        <circle cx="200" cy="200" r="22" fill="var(--var)"/>
+        <circle cx="320" cy="200" r="22" fill="var(--var)"/>
+        <circle cx="410" cy="200" r="22" fill="var(--var)"/>
+        <circle cx="530" cy="200" r="22" fill="var(--var)"/>
+        <circle cx="650" cy="200" r="22" fill="var(--var)"/>
+
+        <text x="80"  y="205" fill="#000" text-anchor="middle" font-size="12" font-weight="600">v₁</text>
+        <text x="200" y="205" fill="#000" text-anchor="middle" font-size="12" font-weight="600">v₂</text>
+        <text x="320" y="205" fill="#000" text-anchor="middle" font-size="12" font-weight="600">v₃</text>
+        <text x="410" y="205" fill="#000" text-anchor="middle" font-size="12" font-weight="600">v₄</text>
+        <text x="530" y="205" fill="#000" text-anchor="middle" font-size="12" font-weight="600">v₅</text>
+        <text x="650" y="205" fill="#000" text-anchor="middle" font-size="12" font-weight="600">v₆</text>
+
+        <text x="80"  y="250" fill="var(--muted)" text-anchor="middle" font-size="11">worker 1</text>
+        <text x="200" y="250" fill="var(--muted)" text-anchor="middle" font-size="11">worker 2</text>
+        <text x="320" y="250" fill="var(--muted)" text-anchor="middle" font-size="11">worker 3</text>
+        <text x="410" y="250" fill="var(--muted)" text-anchor="middle" font-size="11">worker 4</text>
+        <text x="530" y="250" fill="var(--muted)" text-anchor="middle" font-size="11">worker 5</text>
+        <text x="650" y="250" fill="var(--muted)" text-anchor="middle" font-size="11">worker 6</text>
+      </g>
+    </svg>
+
+    <div class="legend">
+      <span><span class="swatch circle" style="background:var(--var)"></span>variable (1 per worker, 2 states)</span>
+      <span><span class="swatch" style="background:var(--kfac)"></span>k-ary group factor (observation over k workers)</span>
+    </div>
+
+    <div class="note">
+      <b>Problem with memory:</b> across rounds, new group factors (new random shuffles) are appended to this same graph — it grows by ~50 factors per round and never shrinks. By round 26 it's carrying ~1,300 factors.<br>
+      <b>Problem with logic:</b> the posterior <code>latent_variables[i] = p_i</code> produced at round <i>t</i> is stored, used for weighting, and then <i>ignored</i> by BP at round <i>t+1</i>. Each round's BP restarts from uniform beliefs.
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- PANEL 2: WITH UNARY PRIORS -->
+  <!-- ============================================================== -->
+  <div class="panel">
+    <h2>2. With unary priors from last round's <code>latent_variables</code><span class="tag fixed">proposed</span></h2>
+    <p class="sub">
+      Same k-ary group factors, plus a tiny <b>unary factor</b> on each variable that encodes its prior probability of being malicious,
+      seeded from last round's posterior. Each unary factor holds just 2 numbers: <code>log(1-p<sub>i</sub>)</code> and <code>log(p<sub>i</sub>)</code>.
+    </p>
+
+    <svg viewBox="0 0 700 360" width="100%" style="max-width:760px;">
+      <!-- group factors (same as panel 1) -->
+      <g>
+        <rect x="135" y="50" width="40" height="40" fill="var(--kfac)" rx="4"/>
+        <text x="155" y="75" fill="#000" text-anchor="middle" font-size="11" font-weight="600">f₁</text>
+        <text x="155" y="38" fill="var(--muted)" text-anchor="middle" font-size="11">group 1</text>
+
+        <rect x="485" y="50" width="40" height="40" fill="var(--kfac)" rx="4"/>
+        <text x="505" y="75" fill="#000" text-anchor="middle" font-size="11" font-weight="600">f₂</text>
+        <text x="505" y="38" fill="var(--muted)" text-anchor="middle" font-size="11">group 2</text>
+      </g>
+      <g stroke="var(--edge)" stroke-width="1.5" fill="none">
+        <line x1="155" y1="90" x2="80"  y2="185"/>
+        <line x1="155" y1="90" x2="200" y2="185"/>
+        <line x1="155" y1="90" x2="320" y2="185"/>
+        <line x1="505" y1="90" x2="410" y2="185"/>
+        <line x1="505" y1="90" x2="530" y2="185"/>
+        <line x1="505" y1="90" x2="650" y2="185"/>
+      </g>
+      <!-- variables -->
+      <g>
+        <circle cx="80"  cy="200" r="22" fill="var(--var)"/>
+        <circle cx="200" cy="200" r="22" fill="var(--var)"/>
+        <circle cx="320" cy="200" r="22" fill="var(--var)"/>
+        <circle cx="410" cy="200" r="22" fill="var(--var)"/>
+        <circle cx="530" cy="200" r="22" fill="var(--var)"/>
+        <circle cx="650" cy="200" r="22" fill="var(--var)"/>
+
+        <text x="80"  y="205" fill="#000" text-anchor="middle" font-size="12" font-weight="600">v₁</text>
+        <text x="200" y="205" fill="#000" text-anchor="middle" font-size="12" font-weight="600">v₂</text>
+        <text x="320" y="205" fill="#000" text-anchor="middle" font-size="12" font-weight="600">v₃</text>
+        <text x="410" y="205" fill="#000" text-anchor="middle" font-size="12" font-weight="600">v₄</text>
+        <text x="530" y="205" fill="#000" text-anchor="middle" font-size="12" font-weight="600">v₅</text>
+        <text x="650" y="205" fill="#000" text-anchor="middle" font-size="12" font-weight="600">v₆</text>
+      </g>
+      <!-- unary priors (squares below each variable) -->
+      <g stroke="var(--edge-strong)" stroke-width="1.5" fill="none">
+        <line x1="80"  y1="222" x2="80"  y2="260"/>
+        <line x1="200" y1="222" x2="200" y2="260"/>
+        <line x1="320" y1="222" x2="320" y2="260"/>
+        <line x1="410" y1="222" x2="410" y2="260"/>
+        <line x1="530" y1="222" x2="530" y2="260"/>
+        <line x1="650" y1="222" x2="650" y2="260"/>
+      </g>
+      <g>
+        <rect x="65"  y="260" width="30" height="30" fill="var(--unary)" rx="3"/>
+        <rect x="185" y="260" width="30" height="30" fill="var(--unary)" rx="3"/>
+        <rect x="305" y="260" width="30" height="30" fill="var(--unary)" rx="3"/>
+        <rect x="395" y="260" width="30" height="30" fill="var(--unary)" rx="3"/>
+        <rect x="515" y="260" width="30" height="30" fill="var(--unary)" rx="3"/>
+        <rect x="635" y="260" width="30" height="30" fill="var(--unary)" rx="3"/>
+
+        <text x="80"  y="280" fill="#000" text-anchor="middle" font-size="10" font-weight="600">π₁</text>
+        <text x="200" y="280" fill="#000" text-anchor="middle" font-size="10" font-weight="600">π₂</text>
+        <text x="320" y="280" fill="#000" text-anchor="middle" font-size="10" font-weight="600">π₃</text>
+        <text x="410" y="280" fill="#000" text-anchor="middle" font-size="10" font-weight="600">π₄</text>
+        <text x="530" y="280" fill="#000" text-anchor="middle" font-size="10" font-weight="600">π₅</text>
+        <text x="650" y="280" fill="#000" text-anchor="middle" font-size="10" font-weight="600">π₆</text>
+
+        <text x="80"  y="312" fill="var(--unary)" text-anchor="middle" font-size="10" font-family="ui-monospace, monospace">p=0.04</text>
+        <text x="200" y="312" fill="var(--unary)" text-anchor="middle" font-size="10" font-family="ui-monospace, monospace">p=0.92</text>
+        <text x="320" y="312" fill="var(--unary)" text-anchor="middle" font-size="10" font-family="ui-monospace, monospace">p=0.11</text>
+        <text x="410" y="312" fill="var(--unary)" text-anchor="middle" font-size="10" font-family="ui-monospace, monospace">p=0.08</text>
+        <text x="530" y="312" fill="var(--unary)" text-anchor="middle" font-size="10" font-family="ui-monospace, monospace">p=0.87</text>
+        <text x="650" y="312" fill="var(--unary)" text-anchor="middle" font-size="10" font-family="ui-monospace, monospace">p=0.15</text>
+
+        <text x="80"  y="340" fill="var(--muted)" text-anchor="middle" font-size="10">from last round</text>
+        <text x="200" y="340" fill="var(--muted)" text-anchor="middle" font-size="10">from last round</text>
+        <text x="320" y="340" fill="var(--muted)" text-anchor="middle" font-size="10">from last round</text>
+        <text x="410" y="340" fill="var(--muted)" text-anchor="middle" font-size="10">from last round</text>
+        <text x="530" y="340" fill="var(--muted)" text-anchor="middle" font-size="10">from last round</text>
+        <text x="650" y="340" fill="var(--muted)" text-anchor="middle" font-size="10">from last round</text>
+      </g>
+    </svg>
+
+    <div class="legend">
+      <span><span class="swatch circle" style="background:var(--var)"></span>variable</span>
+      <span><span class="swatch" style="background:var(--kfac)"></span>k-ary group factor</span>
+      <span><span class="swatch" style="background:var(--unary)"></span>unary prior factor (π<sub>i</sub>)</span>
+    </div>
+
+    <div class="note">
+      Each π<sub>i</sub> is a single-variable factor holding 2 log-potentials:
+      <code>[log(1 − p<sub>i</sub>), log(p<sub>i</sub>)]</code>.
+      It nudges v<sub>i</sub>'s belief toward last round's posterior <i>before</i> BP even starts combining this round's observations. The graph now has 6 + 2 = 8 factors instead of 2, but next round it's still 8 (not 16) — memory stays bounded because we rebuild cleanly.
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- PANEL 3: TEMPORAL FLOW -->
+  <!-- ============================================================== -->
+  <div class="panel">
+    <h2>3. Temporal cycle: posterior becomes next round's prior<span class="tag fixed">Bayesian recursion</span></h2>
+    <p class="sub">
+      This is the standard streaming-Bayesian pattern (same shape as a Kalman filter): the previous round's posterior summarizes history into a single number per worker, and that number becomes the next round's prior via unary factors.
+    </p>
+
+    <svg viewBox="0 0 900 260" width="100%" style="max-width:960px;">
+      <!-- Round t -->
+      <g>
+        <rect x="20"  y="30" width="280" height="200" rx="8" fill="#0f172a" stroke="var(--border)"/>
+        <text x="160" y="52" fill="var(--accent)" text-anchor="middle" font-size="13" font-weight="600">round t</text>
+
+        <!-- kfac -->
+        <rect x="60"  y="75" width="30" height="30" fill="var(--kfac)" rx="3"/>
+        <rect x="230" y="75" width="30" height="30" fill="var(--kfac)" rx="3"/>
+        <!-- vars -->
+        <circle cx="80"  cy="145" r="14" fill="var(--var)"/>
+        <circle cx="160" cy="145" r="14" fill="var(--var)"/>
+        <circle cx="240" cy="145" r="14" fill="var(--var)"/>
+        <!-- edges kfac→var -->
+        <g stroke="var(--edge)" stroke-width="1.2" fill="none">
+          <line x1="75" y1="105" x2="80" y2="132"/>
+          <line x1="75" y1="105" x2="160" y2="132"/>
+          <line x1="245" y1="105" x2="160" y2="132"/>
+          <line x1="245" y1="105" x2="240" y2="132"/>
+        </g>
+        <!-- unary priors -->
+        <rect x="65"  y="175" width="22" height="22" fill="var(--unary)" rx="3" opacity="0.55"/>
+        <rect x="145" y="175" width="22" height="22" fill="var(--unary)" rx="3" opacity="0.55"/>
+        <rect x="225" y="175" width="22" height="22" fill="var(--unary)" rx="3" opacity="0.55"/>
+        <g stroke="var(--edge-strong)" stroke-width="1.2" fill="none">
+          <line x1="80" y1="159" x2="80" y2="175"/>
+          <line x1="160" y1="159" x2="160" y2="175"/>
+          <line x1="240" y1="159" x2="240" y2="175"/>
+        </g>
+        <text x="160" y="218" fill="var(--muted)" text-anchor="middle" font-size="10">π from round t−1</text>
+      </g>
+
+      <!-- arrow label: BP runs -->
+      <g>
+        <path d="M 305 130 L 345 130" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+        <text x="325" y="120" fill="var(--accent)" text-anchor="middle" font-size="10">BP</text>
+      </g>
+
+      <!-- marginals -->
+      <g>
+        <rect x="355" y="100" width="190" height="60" rx="6" fill="#1e293b" stroke="var(--accent)"/>
+        <text x="450" y="122" fill="var(--accent)" text-anchor="middle" font-size="12" font-weight="600">marginals → latent_variables</text>
+        <text x="450" y="142" fill="var(--muted)" text-anchor="middle" font-size="10" font-family="ui-monospace, monospace">{1: 0.04, 2: 0.92, 3: 0.11, ...}</text>
+      </g>
+
+      <!-- arrow to round t+1 -->
+      <g>
+        <path d="M 550 130 L 590 130" stroke="var(--accent)" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+        <text x="570" y="120" fill="var(--accent)" text-anchor="middle" font-size="10">seed π</text>
+      </g>
+
+      <!-- Round t+1 -->
+      <g>
+        <rect x="600" y="30" width="280" height="200" rx="8" fill="#0f172a" stroke="var(--border)"/>
+        <text x="740" y="52" fill="var(--accent)" text-anchor="middle" font-size="13" font-weight="600">round t+1</text>
+
+        <rect x="640" y="75" width="30" height="30" fill="var(--kfac)" rx="3"/>
+        <rect x="810" y="75" width="30" height="30" fill="var(--kfac)" rx="3"/>
+        <circle cx="660" cy="145" r="14" fill="var(--var)"/>
+        <circle cx="740" cy="145" r="14" fill="var(--var)"/>
+        <circle cx="820" cy="145" r="14" fill="var(--var)"/>
+        <g stroke="var(--edge)" stroke-width="1.2" fill="none">
+          <line x1="655" y1="105" x2="660" y2="132"/>
+          <line x1="655" y1="105" x2="740" y2="132"/>
+          <line x1="825" y1="105" x2="740" y2="132"/>
+          <line x1="825" y1="105" x2="820" y2="132"/>
+        </g>
+        <rect x="645" y="175" width="22" height="22" fill="var(--unary)" rx="3"/>
+        <rect x="725" y="175" width="22" height="22" fill="var(--unary)" rx="3"/>
+        <rect x="805" y="175" width="22" height="22" fill="var(--unary)" rx="3"/>
+        <g stroke="var(--edge-strong)" stroke-width="1.2" fill="none">
+          <line x1="660" y1="159" x2="660" y2="175"/>
+          <line x1="740" y1="159" x2="740" y2="175"/>
+          <line x1="820" y1="159" x2="820" y2="175"/>
+        </g>
+        <text x="740" y="218" fill="var(--unary)" text-anchor="middle" font-size="10">π seeded from round t posterior</text>
+      </g>
+
+      <!-- arrowhead marker -->
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+    </svg>
+
+    <div class="note">
+      Round-over-round: graph gets rebuilt from scratch every round (bounded memory), but the <i>information</i> from all previous rounds flows forward, compressed into each worker's scalar prior <code>p<sub>i</sub></code>. History lives in the numbers, not in the graph structure.
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- PANEL 4: COMPARISON TABLE -->
+  <!-- ============================================================== -->
+  <div class="panel">
+    <h2>4. Side-by-side</h2>
+    <svg viewBox="0 0 900 210" width="100%" style="max-width:960px;">
+      <defs>
+        <style>
+          .hdr { font-size: 12px; font-weight: 700; fill: var(--accent); }
+          .row { font-size: 12px; fill: var(--text); }
+          .ok  { fill: var(--good); }
+          .bad { fill: var(--bad); }
+        </style>
+      </defs>
+      <!-- column headers -->
+      <text x="20"  y="30" class="hdr">property</text>
+      <text x="280" y="30" class="hdr">current (panel 1)</text>
+      <text x="500" y="30" class="hdr">rebuild + unary priors (panels 2–3)</text>
+
+      <line x1="20" y1="40" x2="880" y2="40" stroke="var(--border)"/>
+
+      <!-- rows -->
+      <text x="20" y="65" class="row">graph size at round 26</text>
+      <text x="280" y="65" class="row bad">~1,300 factors (grows forever)</text>
+      <text x="500" y="65" class="row ok">50 group + 500 unary = 550 factors (flat)</text>
+
+      <text x="20" y="90" class="row">BP memory per round</text>
+      <text x="280" y="90" class="row bad">grows linearly → OOM</text>
+      <text x="500" y="90" class="row ok">bounded and stable</text>
+
+      <text x="20" y="115" class="row">temporal evidence</text>
+      <text x="280" y="115" class="row bad">all past group factors mixed in</text>
+      <text x="500" y="115" class="row ok">compressed into π<sub>i</sub> per worker</text>
+
+      <text x="20" y="140" class="row">history representation</text>
+      <text x="280" y="140" class="row">O(rounds × groups) factors</text>
+      <text x="500" y="140" class="row ok">O(workers) scalars</text>
+
+      <text x="20" y="165" class="row">JAX recompilation</text>
+      <text x="280" y="165" class="row bad">every round (graph shape changes)</text>
+      <text x="500" y="165" class="row ok">once (shape stable)</text>
+
+      <text x="20" y="190" class="row">posterior → prior feedback</text>
+      <text x="280" y="190" class="row bad">absent (latent_variables ignored by BP)</text>
+      <text x="500" y="190" class="row ok">explicit (unary factors carry p<sub>i</sub>)</text>
+    </svg>
+  </div>
+
+</div>
+</body>
+</html>

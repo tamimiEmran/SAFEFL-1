@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920">
+  <title>Literature Review &mdash; Grouping &amp; Byzantine-Robust Aggregation at Scale</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #F8F9FB;
+      --bg-card: #FFFFFF;
+      --bg-elevated: #F0F1F4;
+      --border: #E0E2E8;
+      --text: #1A1D26;
+      --text-dim: #5A5E6E;
+      --text-muted: #8E92A0;
+      --accent: #0E9A7E;
+      --accent-dim: rgba(14, 154, 126, 0.08);
+      --red: #D9453E;
+      --red-dim: rgba(217, 69, 62, 0.07);
+      --blue: #3B6FD6;
+      --blue-dim: rgba(59, 111, 214, 0.08);
+      --purple: #8B5CC4;
+      --purple-dim: rgba(139, 92, 196, 0.08);
+      --amber: #C88A1A;
+      --amber-dim: rgba(200, 138, 26, 0.08);
+      --teal: #0A7C8C;
+      --teal-dim: rgba(10, 124, 140, 0.08);
+      --font: 'DM Sans', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 40px 48px;
+    }
+
+    .page-header {
+      margin-bottom: 36px;
+    }
+
+    .page-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 4px;
+    }
+
+    .page-header p {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .section {
+      margin-bottom: 32px;
+    }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Paper cards */
+    .paper {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+
+    .paper-header {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .paper-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+    }
+
+    .paper-venue {
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .venue-top {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .venue-good {
+      background: var(--blue-dim);
+      color: var(--blue);
+    }
+
+    .venue-preprint {
+      background: var(--bg-elevated);
+      color: var(--text-muted);
+    }
+
+    .paper-authors {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .paper-body {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .paper-body strong {
+      color: var(--text);
+    }
+
+    .paper-tags {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      background: var(--bg-elevated);
+      color: var(--text-dim);
+    }
+
+    .tag-byz {
+      background: var(--red-dim);
+      color: var(--red);
+    }
+
+    .tag-scale {
+      background: var(--amber-dim);
+      color: var(--amber);
+    }
+
+    .tag-group {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .tag-theory {
+      background: var(--purple-dim);
+      color: var(--purple);
+    }
+
+    .tag-noniid {
+      background: var(--teal-dim);
+      color: var(--teal);
+    }
+
+    /* Gap table */
+    .gap-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .gap-table th {
+      text-align: left;
+      font-weight: 600;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .gap-table td {
+      padding: 8px 12px;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    .gap-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .yes {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .no {
+      color: var(--red);
+      font-weight: 500;
+    }
+
+    .partial {
+      color: var(--amber);
+      font-weight: 500;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="page-header">
+    <h1>Literature Review: Grouping &amp; Byzantine-Robust Aggregation at Scale</h1>
+    <p>Scope: Byzantine-robust FL aggregation methods, their behaviour with many workers, and the role of
+      grouping/bucketing</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="section">
+    <div class="section-title">1. Bucketing / Grouping as a Pre-Processing Step</div>
+
+    <div class="paper" style="border-color: var(--accent); border-width: 2px;">
+      <div class="paper-header">
+        <div class="paper-title">Byzantine-Robust Learning on Heterogeneous Datasets via Bucketing</div>
+        <span class="paper-venue venue-top">ICLR 2022 Spotlight</span>
+      </div>
+      <div class="paper-authors">Karimireddy, He, Jaggi (EPFL)</div>
+      <div class="paper-body">
+        <strong>Most relevant prior work.</strong> Proposes bucketing as a pre-processing step before robust
+        aggregation. Workers are randomly assigned to buckets, gradients are averaged within each bucket, then a robust
+        aggregator (Krum, Median, RFA) is applied to bucket averages.<br><br>
+        <strong>Motivation:</strong> non-IID data heterogeneity causes robust aggregators to fail (honest workers have
+        divergent gradients, aggregator can't distinguish them from Byzantine). Bucketing mixes data distributions
+        across buckets, reducing inter-worker variance &zeta;&sup2;.<br><br>
+        <strong>What they prove:</strong> Krum + bucketing is a provably robust aggregator (their Definition A) under
+        heterogeneous data.<br><br>
+        <strong>What they do NOT study:</strong> the IID case where Krum still fails due to minibatch noise at large n.
+        Their experiments use &le;25 workers. The noise reduction from within-bucket averaging (&sigma;&sup2; reduction)
+        is mentioned but not the focus &mdash; their focus is &zeta;&sup2; (heterogeneity) reduction.<br><br>
+        <strong>Scope: Byzantine robustness + data heterogeneity.</strong> Not framed as a scalability result.<br><br>
+        <strong>Key distinction:</strong> bucketing is introduced as a <em>voluntary algorithmic improvement</em> &mdash; the server chooses to bucket for better convergence. No privacy or secure aggregation motivation. The server still sees all individual gradients before bucketing.
+      </div>
+      <div class="paper-tags">
+        <span class="tag tag-byz">Byzantine robustness</span>
+        <span class="tag tag-group">Grouping/Bucketing</span>
+        <span class="tag tag-noniid">Non-IID</span>
+        <span class="tag tag-theory">Theory</span>
+        <span class="tag">Voluntary bucketing</span>
+      </div>
+    </div>
+
+    <div class="paper">
+      <div class="paper-header">
+        <div class="paper-title">Byzantine-Robust Learning on Heterogeneous Data via Gradient Splitting</div>
+        <span class="paper-venue venue-top">ICML 2023</span>
+      </div>
+      <div class="paper-authors">Liu, Guo, Cong</div>
+      <div class="paper-body">
+        Alternative to bucketing: splits gradients into shared and individual components. Addresses the same non-IID
+        failure mode as Karimireddy. Does not use grouping. <strong>Scope: Byzantine robustness + non-IID.</strong>
+      </div>
+      <div class="paper-tags">
+        <span class="tag tag-byz">Byzantine robustness</span>
+        <span class="tag tag-noniid">Non-IID</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="section">
+    <div class="section-title">2. Variance Reduction in Byzantine-Robust FL</div>
+
+    <div class="paper">
+      <div class="paper-header">
+        <div class="paper-title">Federated Variance-Reduced Stochastic Gradient Descent with Robustness to Byzantine
+          Attacks</div>
+        <span class="paper-venue venue-good">arXiv 2019</span>
+      </div>
+      <div class="paper-authors">Wu, Ling, He, He</div>
+      <div class="paper-body">
+        Recognises that "sizeable SGD-induced stochastic gradient noise makes it challenging to distinguish malicious
+        messages from noisy stochastic gradients." Proposes SAGA-based variance reduction <strong>within each
+          worker</strong> before aggregation. <strong>Scope: Byzantine robustness.</strong> Does not use grouping;
+        reduces noise at the source instead.
+      </div>
+      <div class="paper-tags">
+        <span class="tag tag-byz">Byzantine robustness</span>
+        <span class="tag tag-theory">Theory</span>
+        <span class="tag">Variance reduction</span>
+      </div>
+    </div>
+
+    <div class="paper">
+      <div class="paper-header">
+        <div class="paper-title">Byzantine-Robust Federated Learning with Optimal Statistical Rates</div>
+        <span class="paper-venue venue-good">AISTATS 2023</span>
+      </div>
+      <div class="paper-authors">Zhu, Wang, Jia</div>
+      <div class="paper-body">
+        Achieves order-optimal error rates O(&sigma;&sup2;/(nm) + &zeta;&sup2;) by combining bucketing with robust mean
+        estimation. Explicitly decomposes error into within-worker noise (&sigma;&sup2;) and between-worker
+        heterogeneity (&zeta;&sup2;). <strong>Uses bucketing but analyses it through a statistical lens, not a
+          scalability lens.</strong>
+      </div>
+      <div class="paper-tags">
+        <span class="tag tag-byz">Byzantine robustness</span>
+        <span class="tag tag-group">Grouping/Bucketing</span>
+        <span class="tag tag-theory">Theory</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="section">
+    <div class="section-title">3. Benchmarks and Empirical Studies</div>
+
+    <div class="paper">
+      <div class="paper-header">
+        <div class="paper-title">An Experimental Study of Byzantine-Robust Aggregation Schemes in Federated Learning
+        </div>
+        <span class="paper-venue venue-good">IEEE TNNLS 2023</span>
+      </div>
+      <div class="paper-authors">Mhamdi et al.</div>
+      <div class="paper-body">
+        Comprehensive benchmark of Krum, Multi-Krum, Bulyan, Median, Trim-Mean under FedSGD and FedAvg with various
+        attacks. Concludes "robustness of all aggregation schemes is limited." <strong>Does not vary the number of
+          workers as an experimental axis.</strong> Does not study grouping. <strong>Scope: Byzantine robustness
+          evaluation.</strong>
+      </div>
+      <div class="paper-tags">
+        <span class="tag tag-byz">Byzantine robustness</span>
+        <span class="tag">Benchmark</span>
+      </div>
+    </div>
+
+    <div class="paper">
+      <div class="paper-header">
+        <div class="paper-title">Do We Really Need to Design New Byzantine-robust Aggregation Rules?</div>
+        <span class="paper-venue venue-top">NDSS 2025</span>
+      </div>
+      <div class="paper-authors">Fang, Nabavirazavi, Cao, Gong</div>
+      <div class="paper-body">
+        Argues existing rules (Trim-Mean, Median) are sufficient if augmented with server-generated synthetic updates.
+        Does not use grouping/bucketing. Key claim: the problem isn't the aggregation rule, it's the input quality.
+        <strong>Scope: security + Byzantine robustness.</strong>
+      </div>
+      <div class="paper-tags">
+        <span class="tag tag-byz">Byzantine robustness</span>
+        <span class="tag">Security focus</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="section">
+    <div class="section-title">4. Gap Analysis</div>
+
+    <table class="gap-table">
+      <thead>
+        <tr>
+          <th style="width: 30%;">Aspect</th>
+          <th style="width: 15%;">Covered?</th>
+          <th>Where / By Whom</th>
+          <th>What's Missing</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Krum fails under crafted attacks</td>
+          <td class="yes">Yes</td>
+          <td>Fang (USENIX 2020), Shejwalkar (NDSS 2021)</td>
+          <td>&mdash;</td>
+        </tr>
+        <tr>
+          <td>Bucketing fixes non-IID failure</td>
+          <td class="yes">Yes</td>
+          <td>Karimireddy (ICLR 2022)</td>
+          <td>&mdash;</td>
+        </tr>
+        <tr>
+          <td>Gradient noise hinders Byzantine detection</td>
+          <td class="partial">Mentioned</td>
+          <td>Wu (2019), Zhu (AISTATS 2023)</td>
+          <td>Stated as motivation, not empirically isolated</td>
+        </tr>
+        <tr>
+          <td>Selection-based methods fail at large n with IID data</td>
+          <td class="no">No</td>
+          <td>&mdash;</td>
+          <td>No paper tests Krum at 500 workers with IID data and reports the degradation</td>
+        </tr>
+        <tr>
+          <td>Grouping fixes noise (not just heterogeneity)</td>
+          <td class="no">No</td>
+          <td>&mdash;</td>
+          <td>Karimireddy's theory covers it implicitly (&sigma;&sup2; term) but never tests or frames it</td>
+        </tr>
+        <tr>
+          <td>Scale sweep: accuracy vs n for fixed batch size</td>
+          <td class="no">No</td>
+          <td>&mdash;</td>
+          <td>Existing benchmarks use &le;100 workers; none vary n as the independent variable</td>
+        </tr>
+        <tr>
+          <td>Grouping effect magnitude at realistic scale</td>
+          <td class="no">No</td>
+          <td>&mdash;</td>
+          <td>+21pp clean, +24pp under attack (our preliminary finding) &mdash; nothing comparable in literature</td>
+        </tr>
+        <tr>
+          <td>Selection-based vs averaging-based scaling comparison</td>
+          <td class="no">No</td>
+          <td>&mdash;</td>
+          <td>No paper contrasts how these two classes scale differently with n</td>
+        </tr>
+        <tr>
+          <td>Grouping as an externally imposed constraint (privacy / secure aggregation)</td>
+          <td class="no">No</td>
+          <td>&mdash;</td>
+          <td>All existing bucketing work treats it as a voluntary algorithmic choice. No paper studies what happens when grouping is <em>required</em> by secure aggregation and defences must operate on group outputs only</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="section">
+    <div class="section-title">5. Classification of Methods by Type</div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div
+        style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px;">
+        <div
+          style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--red); margin-bottom: 8px;">
+          Selection-based (pick k of n)</div>
+        <div style="font-size: 13px; color: var(--text-dim); line-height: 1.7;">
+          <strong>Krum</strong> &mdash; pick 1 closest to majority<br>
+          <strong>Multi-Krum</strong> &mdash; pick m, average<br>
+          <strong>Bulyan</strong> &mdash; Krum selection + Trim-Mean<br><br>
+          <strong>Scaling with n:</strong> noise in each candidate grows with smaller per-worker data. Selection quality
+          degrades because all candidates are noisy. More workers &ne; better signal.
+        </div>
+      </div>
+      <div
+        style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px;">
+        <div
+          style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--blue); margin-bottom: 8px;">
+          Averaging-based (robust statistic over all n)</div>
+        <div style="font-size: 13px; color: var(--text-dim); line-height: 1.7;">
+          <strong>Coordinate-wise Median</strong><br>
+          <strong>Trimmed Mean</strong><br>
+          <strong>Geometric Median (RFA)</strong><br>
+          <strong>FedAvg</strong> (no robustness)<br><br>
+          <strong>Scaling with n:</strong> error &prop; &sigma;&sup2;/n. More workers = less noise. These methods
+          inherently benefit from scale.
+        </div>
+      </div>
+    </div>
+
+    <div
+      style="background: var(--amber-dim); border: 1px solid rgba(200,138,26,0.18); border-radius: var(--radius-sm); padding: 12px 16px; margin-top: 12px; font-size: 12px; color: var(--text-dim); line-height: 1.6;">
+      <strong style="color: var(--amber);">Note:</strong> all existing literature assumes the server sees individual gradients and <em>chooses</em> whether to bucket. Under <strong>secure aggregation</strong>, the server only sees group outputs &mdash; individual gradients are hidden by the protocol. This means (1) robust aggregation must operate on grouped inputs whether or not it helps, (2) the server cannot fall back to ungrouped mode, and (3) the grouping structure is a privacy constraint, not an optimisation choice. No paper in this review studies Byzantine robustness under this constraint.
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="section">
+    <div class="section-title">6. Possible Contribution Angle</div>
+
+    <div
+      style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px;">
+      <div style="font-size: 13px; color: var(--text-dim); line-height: 1.8;">
+        <strong style="color: var(--text);">Core question:</strong> how does the selection vs averaging distinction in
+        robust aggregation interact with worker count and grouping?
+
+        <ul style="margin-top: 10px; padding-left: 20px;">
+          <li><strong>Scale as an experimental axis</strong> &mdash; existing benchmarks use &le;100 workers and don't
+            vary n. Run all defences at n = 25, 50, 100, 200, 500 with fixed batch size. Plot accuracy vs n.</li>
+          <li><strong>Two classes, two scaling behaviours</strong> &mdash; show that averaging-based methods (FedAvg,
+            Trim-Mean, Median) improve or hold as n grows, while selection-based methods (Krum, Multi-Krum, Bulyan,
+            SignGuard) degrade. This is a systematic finding about a class, not a single algorithm.</li>
+          <li><strong>Isolate noise from heterogeneity</strong> &mdash; Karimireddy (ICLR 2022) frames bucketing as
+            fixing non-IID. Run the same experiments with IID data and show the noise failure mode exists independently.
+            Bucketing fixes both, but they are distinct problems.</li>
+          <li><strong>Grouping as the equaliser</strong> &mdash; show that after grouping, both classes converge to
+            similar performance. Grouping removes the scaling disadvantage of selection-based methods.</li>
+          <li><strong>Practical guideline</strong> &mdash; for n workers with batch size b, what group size k is needed?
+            The Phase 6 sensitivity grid (k &times; nbyz) can answer this empirically.</li>
+          <li><strong>Grouping as a constraint, not a choice</strong> &mdash; all existing bucketing work (Karimireddy, Zhu) introduces grouping voluntarily for algorithmic benefit. In secure aggregation settings, grouping is <em>imposed</em> by the privacy protocol &mdash; the server never sees individual gradients. This changes the research question from "should you bucket?" to "given that you must group for privacy, what are the consequences for Byzantine robustness?" No existing paper starts from this constraint.</li>
+        </ul>
+
+        <div
+          style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted);">
+          <strong>Requires but not yet available:</strong> Multi-Krum, Bulyan, Trim-Mean, Median implementations in the
+          codebase. Currently have: FedAvg, Krum, ShieldFL, SignGuard.
+        </div>
+
+        <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted);">
+          <strong>Risk:</strong> if the finding only holds for Krum and not the broader class, the contribution narrows
+          to a replication of Karimireddy with larger n. The scale sweep across multiple methods is what makes or breaks
+          this.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div
+    style="text-align:center; padding: 24px 0 8px; font-size: 11px; color: var(--text-muted); font-family: var(--mono);">
+    Literature Review &middot; April 2026 &middot; 10 papers reviewed
+  </div>
+
+</body>
+
+</html>

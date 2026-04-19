@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920">
+  <title>Windowed BP Redesign &mdash; From Memory Crisis to the Next Bottleneck</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #F8F9FB;
+      --bg-card: #FFFFFF;
+      --bg-elevated: #F0F1F4;
+      --border: #E0E2E8;
+      --text: #1A1D26;
+      --text-dim: #5A5E6E;
+      --text-muted: #8E92A0;
+      --accent: #0E9A7E;
+      --accent-dim: rgba(14, 154, 126, 0.08);
+      --red: #D9453E;
+      --red-dim: rgba(217, 69, 62, 0.07);
+      --blue: #3B6FD6;
+      --blue-dim: rgba(59, 111, 214, 0.08);
+      --purple: #8B5CC4;
+      --purple-dim: rgba(139, 92, 196, 0.08);
+      --amber: #C88A1A;
+      --amber-dim: rgba(200, 138, 26, 0.08);
+      --teal: #0A7C8C;
+      --teal-dim: rgba(10, 124, 140, 0.08);
+      --font: 'DM Sans', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 40px 48px;
+    }
+
+    .page-header {
+      margin-bottom: 36px;
+    }
+
+    .page-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 4px;
+    }
+
+    .page-header p {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .section {
+      margin-bottom: 32px;
+    }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+    }
+
+    .card-stamp {
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .stamp-v1     { background: var(--blue-dim);   color: var(--blue);   }
+    .stamp-v2     { background: var(--accent-dim); color: var(--accent); }
+    .stamp-broken { background: var(--red-dim);    color: var(--red);    }
+    .stamp-warn   { background: var(--amber-dim);  color: var(--amber);  }
+
+    .card-body {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .card-body strong { color: var(--text); }
+
+    .card-body ul {
+      margin: 8px 0 4px;
+      padding-left: 20px;
+    }
+
+    .card-body ul li { margin-bottom: 6px; }
+
+    .card-tags {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      background: var(--bg-elevated);
+      color: var(--text-dim);
+    }
+
+    .tag-byz    { background: var(--red-dim);    color: var(--red);    }
+    .tag-mem    { background: var(--amber-dim);  color: var(--amber);  }
+    .tag-fg     { background: var(--purple-dim); color: var(--purple); }
+    .tag-fix    { background: var(--accent-dim); color: var(--accent); }
+    .tag-perf   { background: var(--teal-dim);   color: var(--teal);   }
+    .tag-design { background: var(--blue-dim);   color: var(--blue);   }
+
+    /* Note callouts */
+    .note {
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+    .note strong { color: var(--text); }
+    .note-good   { background: var(--accent-dim); border: 1px solid rgba(14,154,126,0.18); }
+    .note-good   .label { color: var(--accent); }
+    .note-bad    { background: var(--red-dim);    border: 1px solid rgba(217,69,62,0.18); }
+    .note-bad    .label { color: var(--red); }
+    .note-warn   { background: var(--amber-dim);  border: 1px solid rgba(200,138,26,0.18); }
+    .note-warn   .label { color: var(--amber); }
+    .note-info   { background: var(--blue-dim);   border: 1px solid rgba(59,111,214,0.18); }
+    .note-info   .label { color: var(--blue); }
+    .note .label { font-weight: 700; }
+
+    /* Side-by-side compare */
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .compare .col {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+    }
+    .compare .col h4 {
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+    .compare .col h4.v1 { color: var(--blue); }
+    .compare .col h4.v2 { color: var(--accent); }
+    .compare .col p {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* Number cards */
+    .nums {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .num {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+    }
+    .num .k {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .num .v {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+      margin-top: 2px;
+    }
+    .num .v.bad  { color: var(--red); }
+    .num .v.good { color: var(--accent); }
+
+    svg { display: block; margin: 14px auto 4px; }
+
+    code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--bg-elevated);
+      padding: 1px 6px;
+      border-radius: 3px;
+      color: var(--text);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="page-header">
+    <h1>Windowed BP Redesign: From Memory Crisis to the Next Bottleneck</h1>
+    <p>Why v1 ran out of memory, what the windowed + unary-prior redesign does about it, and the new wall-clock problem it introduced.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="section">
+    <div class="section-title">1. Original Design &mdash; Full-History Factor Graph</div>
+
+    <div class="card" style="border-color: var(--blue); border-width: 2px;">
+      <div class="card-header">
+        <div class="card-title">One persistent factor graph for the entire training run</div>
+        <span class="card-stamp stamp-v1">v1</span>
+      </div>
+      <div class="card-body">
+        Workers are variable nodes &mdash; binary latents <code>P(worker<sub>i</sub> = malicious)</code>. Each round, every secure-aggregation group produces one observation, added to the graph as a k-ary factor over its members. The graph is never reset; BP runs over the whole accumulated structure.<br><br>
+
+        Pros: every observation enters the posterior at full weight, no horizon parameter to tune, structure is monotone so JIT compiles once. Cons: graph size scales with round count. The model has no notion of a memory budget.
+
+        <svg viewBox="0 0 940 240" width="100%" height="240">
+          <defs>
+            <marker id="arr1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="#8E92A0"/>
+            </marker>
+          </defs>
+
+          <!-- Round 1 -->
+          <g>
+            <rect x="20" y="30" width="200" height="180" rx="8" fill="#F8F9FB" stroke="#E0E2E8"/>
+            <text x="120" y="50" text-anchor="middle" font-size="11" fill="#5A5E6E" font-family="DM Sans">Round 1</text>
+            <circle cx="65"  cy="100" r="11" fill="#3B6FD6"/>
+            <circle cx="120" cy="100" r="11" fill="#3B6FD6"/>
+            <circle cx="175" cy="100" r="11" fill="#3B6FD6"/>
+            <rect x="110" y="155" width="20" height="20" fill="#C88A1A"/>
+            <line x1="65"  y1="111" x2="115" y2="155" stroke="#8E92A0"/>
+            <line x1="120" y1="111" x2="120" y2="155" stroke="#8E92A0"/>
+            <line x1="175" y1="111" x2="125" y2="155" stroke="#8E92A0"/>
+            <text x="120" y="195" text-anchor="middle" font-size="10" fill="#8E92A0" font-family="JetBrains Mono">3 factors</text>
+          </g>
+
+          <!-- Round 100 -->
+          <g>
+            <rect x="240" y="30" width="220" height="180" rx="8" fill="#F8F9FB" stroke="#E0E2E8"/>
+            <text x="350" y="50" text-anchor="middle" font-size="11" fill="#5A5E6E" font-family="DM Sans">Round 100</text>
+            <circle cx="285" cy="100" r="11" fill="#3B6FD6"/>
+            <circle cx="350" cy="100" r="11" fill="#3B6FD6"/>
+            <circle cx="415" cy="100" r="11" fill="#3B6FD6"/>
+            <g fill="#C88A1A">
+              <rect x="265" y="145" width="13" height="13"/>
+              <rect x="290" y="165" width="13" height="13"/>
+              <rect x="315" y="145" width="13" height="13"/>
+              <rect x="340" y="165" width="13" height="13"/>
+              <rect x="365" y="145" width="13" height="13"/>
+              <rect x="390" y="165" width="13" height="13"/>
+              <rect x="415" y="145" width="13" height="13"/>
+              <rect x="440" y="165" width="13" height="13"/>
+            </g>
+            <g stroke="#8E92A0" stroke-width="0.5" opacity="0.6">
+              <line x1="285" y1="111" x2="271" y2="145"/>
+              <line x1="285" y1="111" x2="296" y2="165"/>
+              <line x1="350" y1="111" x2="321" y2="145"/>
+              <line x1="350" y1="111" x2="346" y2="165"/>
+              <line x1="350" y1="111" x2="371" y2="145"/>
+              <line x1="415" y1="111" x2="396" y2="165"/>
+              <line x1="415" y1="111" x2="421" y2="145"/>
+              <line x1="415" y1="111" x2="446" y2="165"/>
+            </g>
+            <text x="350" y="195" text-anchor="middle" font-size="10" fill="#8E92A0" font-family="JetBrains Mono">~300 factors</text>
+          </g>
+
+          <!-- Round 1300 -->
+          <g>
+            <rect x="480" y="30" width="280" height="180" rx="8" fill="#F8F9FB" stroke="#D9453E"/>
+            <text x="620" y="50" text-anchor="middle" font-size="11" fill="#D9453E" font-family="DM Sans">Round 1300</text>
+            <circle cx="525" cy="100" r="11" fill="#3B6FD6"/>
+            <circle cx="620" cy="100" r="11" fill="#3B6FD6"/>
+            <circle cx="715" cy="100" r="11" fill="#3B6FD6"/>
+            <g fill="#C88A1A" opacity="0.95">
+              <rect x="505" y="140" width="9" height="9"/>
+              <rect x="520" y="155" width="9" height="9"/>
+              <rect x="535" y="140" width="9" height="9"/>
+              <rect x="550" y="170" width="9" height="9"/>
+              <rect x="565" y="150" width="9" height="9"/>
+              <rect x="580" y="165" width="9" height="9"/>
+              <rect x="595" y="140" width="9" height="9"/>
+              <rect x="610" y="155" width="9" height="9"/>
+              <rect x="625" y="175" width="9" height="9"/>
+              <rect x="640" y="145" width="9" height="9"/>
+              <rect x="655" y="165" width="9" height="9"/>
+              <rect x="670" y="150" width="9" height="9"/>
+              <rect x="685" y="175" width="9" height="9"/>
+              <rect x="700" y="140" width="9" height="9"/>
+              <rect x="715" y="165" width="9" height="9"/>
+              <rect x="730" y="150" width="9" height="9"/>
+            </g>
+            <text x="620" y="195" text-anchor="middle" font-size="10" fill="#D9453E" font-family="JetBrains Mono">~65,000 factors and growing</text>
+          </g>
+
+          <line x1="222" y1="120" x2="238" y2="120" stroke="#8E92A0" stroke-width="1.2" marker-end="url(#arr1)"/>
+          <line x1="462" y1="120" x2="478" y2="120" stroke="#8E92A0" stroke-width="1.2" marker-end="url(#arr1)"/>
+
+          <!-- legend -->
+          <g transform="translate(800,80)" font-size="10" fill="#8E92A0" font-family="JetBrains Mono">
+            <circle cx="6" cy="6" r="6" fill="#3B6FD6"/><text x="20" y="9">variable</text>
+            <rect x="0" y="22" width="12" height="12" fill="#C88A1A"/><text x="20" y="32">k-ary factor</text>
+          </g>
+        </svg>
+      </div>
+      <div class="card-tags">
+        <span class="tag tag-design">Design v1</span>
+        <span class="tag tag-fg">Factor graph</span>
+        <span class="tag tag-byz">Byzantine-robust FL</span>
+        <span class="tag">Persistent state</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="section">
+    <div class="section-title">2. What Broke &mdash; Linear Growth Hits a Hardware Ceiling</div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Factor count grows with round count, GPU memory does not</div>
+        <span class="card-stamp stamp-broken">v1 problem</span>
+      </div>
+      <div class="card-body">
+        With <em>G</em> groups per round and <em>R</em> rounds, the graph carries <code>G &times; R</code> k-ary factors. Each holds a <code>2<sup>k</sup></code>-entry message table, with BP allocating factor-to-variable and variable-to-factor messages on every edge. Around round 1300, <code>bp.run</code> raises <code>RESOURCE_EXHAUSTED</code> on a 4&nbsp;MiB allocation.<br><br>
+
+        Algorithm and implementation are fine. The model just isn't aware that memory is finite.
+
+        <svg viewBox="0 0 920 220" width="100%" height="220">
+          <line x1="60"  y1="170" x2="860" y2="170" stroke="#8E92A0"/>
+          <line x1="60"  y1="170" x2="60"  y2="30"  stroke="#8E92A0"/>
+          <text x="460" y="200" text-anchor="middle" font-size="11" fill="#8E92A0" font-family="JetBrains Mono">training round</text>
+          <text x="22"  y="100" text-anchor="middle" font-size="11" fill="#8E92A0" font-family="JetBrains Mono" transform="rotate(-90 22 100)">device memory</text>
+
+          <line x1="60" y1="55" x2="860" y2="55" stroke="#D9453E" stroke-dasharray="6 4"/>
+          <text x="855" y="48" text-anchor="end" font-size="10" fill="#D9453E" font-family="JetBrains Mono">GPU ceiling</text>
+
+          <path d="M 60 168 L 860 50" stroke="#C88A1A" stroke-width="2.4" fill="none"/>
+          <circle cx="780" cy="62" r="6" fill="#D9453E"/>
+          <text x="780" y="82" text-anchor="middle" font-size="10" fill="#D9453E" font-family="JetBrains Mono">OOM @ ~round 1300</text>
+
+          <text x="60"  y="186" text-anchor="middle" font-size="10" fill="#8E92A0" font-family="JetBrains Mono">0</text>
+          <text x="460" y="186" text-anchor="middle" font-size="10" fill="#8E92A0" font-family="JetBrains Mono">~700</text>
+          <text x="860" y="186" text-anchor="middle" font-size="10" fill="#8E92A0" font-family="JetBrains Mono">~1500</text>
+        </svg>
+
+        <div class="nums">
+          <div class="num"><div class="k">round 100</div><div class="v">~5,000 factors</div></div>
+          <div class="num"><div class="k">round 1000</div><div class="v">~50,000 factors</div></div>
+          <div class="num"><div class="k">round 1300</div><div class="v bad">crash</div></div>
+        </div>
+
+        <div class="note note-bad">
+          <span class="label">Root cause:</span> graph size grows linearly with rounds, eventually exceeding the device memory budget.
+        </div>
+      </div>
+      <div class="card-tags">
+        <span class="tag tag-mem">Memory</span>
+        <span class="tag">OOM</span>
+        <span class="tag">XLA / pgmax</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="section">
+    <div class="section-title">3. The Redesign &mdash; Windowed BP + Unary Priors</div>
+
+    <div class="card" style="border-color: var(--accent); border-width: 2px;">
+      <div class="card-header">
+        <div class="card-title">Sliding window of K rounds; older evidence collapsed into a per-worker prior</div>
+        <span class="card-stamp stamp-v2">v2</span>
+      </div>
+      <div class="card-body">
+        Each round: slide a window over the last <em>K</em> rounds of group observations, snapshot the marginals from round <em>t&minus;K</em> as a per-worker unary prior, build a fresh graph (one unary factor per worker + the windowed k-ary factors), run BP.<br><br>
+
+        The unary prior carries the posterior from round <em>t&minus;K</em> &mdash; under a Markov assumption on the latent state, that posterior is a sufficient summary of everything outside the window. Same idea as fixed-lag smoothing.
+
+        <svg viewBox="0 0 980 290" width="100%" height="290">
+          <defs>
+            <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="#8B5CC4"/>
+            </marker>
+          </defs>
+
+          <!-- old rounds (collapsed) -->
+          <g>
+            <rect x="20" y="40" width="220" height="220" rx="8" fill="#F8F9FB" stroke="#E0E2E8" stroke-dasharray="4 4"/>
+            <text x="130" y="62" text-anchor="middle" font-size="11" fill="#5A5E6E" font-family="DM Sans">Rounds 1 &hellip; t&minus;K</text>
+            <text x="130" y="78" text-anchor="middle" font-size="10" fill="#8E92A0" font-family="JetBrains Mono">(out of window)</text>
+
+            <g fill="#C88A1A" opacity="0.25">
+              <rect x="40"  y="100" width="12" height="12"/>
+              <rect x="60"  y="120" width="12" height="12"/>
+              <rect x="80"  y="100" width="12" height="12"/>
+              <rect x="100" y="130" width="12" height="12"/>
+              <rect x="120" y="110" width="12" height="12"/>
+              <rect x="140" y="135" width="12" height="12"/>
+              <rect x="160" y="115" width="12" height="12"/>
+              <rect x="180" y="130" width="12" height="12"/>
+              <rect x="200" y="105" width="12" height="12"/>
+            </g>
+
+            <text x="130" y="180" text-anchor="middle" font-size="10" fill="#8B5CC4" font-family="JetBrains Mono">posterior @ t&minus;K</text>
+            <rect x="80" y="195" width="100" height="32" rx="6" fill="#FFFFFF" stroke="#8B5CC4"/>
+            <text x="130" y="215" text-anchor="middle" font-size="10" fill="#8B5CC4" font-family="JetBrains Mono">snapshot &rarr; prior</text>
+          </g>
+
+          <line x1="245" y1="210" x2="305" y2="170" stroke="#8B5CC4" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+          <!-- active window -->
+          <g>
+            <rect x="320" y="40" width="450" height="220" rx="8" fill="#F8F9FB" stroke="#0E9A7E"/>
+            <text x="545" y="62" text-anchor="middle" font-size="11" fill="#0E9A7E" font-family="DM Sans">Active graph (window of K rounds)</text>
+
+            <circle cx="380" cy="120" r="12" fill="#3B6FD6"/>
+            <circle cx="470" cy="120" r="12" fill="#3B6FD6"/>
+            <circle cx="560" cy="120" r="12" fill="#3B6FD6"/>
+            <circle cx="650" cy="120" r="12" fill="#3B6FD6"/>
+            <circle cx="730" cy="120" r="12" fill="#3B6FD6"/>
+
+            <g fill="#8B5CC4">
+              <rect x="372" y="84" width="16" height="16"/>
+              <rect x="462" y="84" width="16" height="16"/>
+              <rect x="552" y="84" width="16" height="16"/>
+              <rect x="642" y="84" width="16" height="16"/>
+              <rect x="722" y="84" width="16" height="16"/>
+            </g>
+            <g stroke="#8B5CC4" stroke-width="0.8">
+              <line x1="380" y1="100" x2="380" y2="108"/>
+              <line x1="470" y1="100" x2="470" y2="108"/>
+              <line x1="560" y1="100" x2="560" y2="108"/>
+              <line x1="650" y1="100" x2="650" y2="108"/>
+              <line x1="730" y1="100" x2="730" y2="108"/>
+            </g>
+
+            <g fill="#C88A1A">
+              <rect x="395" y="160" width="14" height="14"/>
+              <rect x="495" y="160" width="14" height="14"/>
+              <rect x="600" y="160" width="14" height="14"/>
+              <rect x="690" y="160" width="14" height="14"/>
+
+              <rect x="430" y="190" width="14" height="14"/>
+              <rect x="530" y="190" width="14" height="14"/>
+              <rect x="640" y="190" width="14" height="14"/>
+
+              <rect x="410" y="220" width="14" height="14"/>
+              <rect x="510" y="220" width="14" height="14"/>
+              <rect x="615" y="220" width="14" height="14"/>
+              <rect x="710" y="220" width="14" height="14"/>
+            </g>
+            <g stroke="#8E92A0" stroke-width="0.5" opacity="0.6">
+              <line x1="380" y1="132" x2="402" y2="160"/>
+              <line x1="470" y1="132" x2="502" y2="160"/>
+              <line x1="560" y1="132" x2="607" y2="160"/>
+              <line x1="650" y1="132" x2="697" y2="160"/>
+              <line x1="380" y1="132" x2="437" y2="190"/>
+              <line x1="470" y1="132" x2="537" y2="190"/>
+              <line x1="650" y1="132" x2="647" y2="190"/>
+              <line x1="380" y1="132" x2="417" y2="220"/>
+              <line x1="470" y1="132" x2="517" y2="220"/>
+              <line x1="560" y1="132" x2="622" y2="220"/>
+              <line x1="730" y1="132" x2="717" y2="220"/>
+            </g>
+
+            <text x="780" y="170" font-size="10" fill="#8E92A0" font-family="JetBrains Mono">round t</text>
+            <text x="780" y="200" font-size="10" fill="#8E92A0" font-family="JetBrains Mono">round t&minus;1</text>
+            <text x="780" y="230" font-size="10" fill="#8E92A0" font-family="JetBrains Mono">round t&minus;2</text>
+          </g>
+
+          <g transform="translate(820,90)" font-size="10" fill="#8E92A0" font-family="JetBrains Mono">
+            <circle cx="6" cy="6" r="6" fill="#3B6FD6"/><text x="20" y="9">variable</text>
+            <rect x="0" y="22" width="12" height="12" fill="#8B5CC4"/><text x="20" y="32">unary prior</text>
+            <rect x="0" y="42" width="12" height="12" fill="#C88A1A"/><text x="20" y="52">k-ary factor</text>
+          </g>
+        </svg>
+
+        Properties:
+        <ul>
+          <li>Memory is <code>O(N + K&middot;G)</code>, independent of training length.</li>
+          <li><em>K</em> trades short-horizon reactivity against historical depth. v1 is <em>K</em>&rarr;&infin;.</li>
+          <li>Older evidence is summarised, not discarded; posterior at round <em>t</em> still reflects rounds 1&hellip;<em>t</em>.</li>
+        </ul>
+
+        <div class="note note-good">
+          <span class="label">Result:</span> no more OOM. Memory footprint is flat across the run.
+        </div>
+      </div>
+      <div class="card-tags">
+        <span class="tag tag-design">Design v2</span>
+        <span class="tag tag-fix">Memory-bounded</span>
+        <span class="tag tag-fg">Factor graph</span>
+        <span class="tag">Fixed-lag smoothing</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="section">
+    <div class="section-title">4. New Bottleneck &mdash; Per-Round JIT Recompile</div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Memory crisis solved, wall-clock crisis introduced</div>
+        <span class="card-stamp stamp-warn">v2 problem</span>
+      </div>
+      <div class="card-body">
+        A run now takes ~24 h instead of v1's ~5 h. Per-round wall-clock went from ~6 s to ~29 s.<br><br>
+
+        Group assignments rotate every round (security requirement &mdash; stable group-mates would let Byzantines collude). Each rotation changes the factor-graph connectivity, so JAX/pgmax JIT-recompiles <code>bp.run</code> from scratch. Compile cost dominates.
+
+        <div class="compare">
+          <div class="col">
+            <h4 class="v1">v1 &mdash; GPU</h4>
+            <p>Graph grows, but structure is monotone &mdash; JIT compiles once and amortises. ~6 s/round, mostly BP.</p>
+          </div>
+          <div class="col">
+            <h4 class="v2">v2 &mdash; CPU</h4>
+            <p>New topology every round &rarr; fresh JIT compile every round. ~29 s/round, mostly compile.</p>
+          </div>
+        </div>
+
+        <svg viewBox="0 0 940 200" width="100%" height="200">
+          <text x="470" y="20" text-anchor="middle" font-size="11" fill="#5A5E6E" font-family="DM Sans">Per-round time breakdown</text>
+
+          <text x="60" y="78" font-size="11" fill="#1A1D26" font-family="JetBrains Mono">v1 (GPU)</text>
+          <rect x="160" y="60" width="40" height="28" fill="#0E9A7E"/>
+          <rect x="200" y="60" width="20" height="28" fill="#3B6FD6"/>
+          <text x="240" y="78" font-size="11" fill="#5A5E6E" font-family="DM Sans">~6 s &mdash; mostly BP work; one-time compile amortised</text>
+
+          <text x="60" y="138" font-size="11" fill="#1A1D26" font-family="JetBrains Mono">v2 (CPU)</text>
+          <rect x="160" y="120" width="40" height="28" fill="#0E9A7E"/>
+          <rect x="200" y="120" width="20" height="28" fill="#3B6FD6"/>
+          <rect x="220" y="120" width="540" height="28" fill="#C88A1A"/>
+          <text x="780" y="138" font-size="11" fill="#C88A1A" font-family="DM Sans">+ ~23 s JIT recompile, every round</text>
+
+          <g transform="translate(160,170)" font-size="10" fill="#8E92A0" font-family="JetBrains Mono">
+            <rect x="0" y="0" width="12" height="12" fill="#0E9A7E"/><text x="18" y="10">BP iterations</text>
+            <rect x="120" y="0" width="12" height="12" fill="#3B6FD6"/><text x="138" y="10">graph build / I/O</text>
+            <rect x="270" y="0" width="12" height="12" fill="#C88A1A"/><text x="288" y="10">JIT compile</text>
+          </g>
+        </svg>
+
+        <div class="nums">
+          <div class="num"><div class="k">v1 wall-clock</div><div class="v">~5 h / run</div></div>
+          <div class="num"><div class="k">v2 wall-clock</div><div class="v bad">~24 h / run</div></div>
+          <div class="num"><div class="k">compile share of round</div><div class="v bad">&gt; 75 %</div></div>
+        </div>
+
+        <div class="note note-info">
+          <span class="label">Why CPU:</span> on GPU the per-round recompile fragmented XLA's BFC allocator and reproduced the OOM at ~round 1300 even with the windowed graph. CPU has the headroom; the recompile cost is the same, just without the allocator dying.
+        </div>
+
+        <div class="note note-bad">
+          <span class="label">Open:</span> bottleneck is the JIT-compile tax, not memory and not BP.
+        </div>
+      </div>
+      <div class="card-tags">
+        <span class="tag tag-perf">Performance</span>
+        <span class="tag">JIT compile</span>
+        <span class="tag">XLA / pgmax</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="section">
+    <div class="section-title">5. v3 &mdash; Detect Once, Then FedAvg</div>
+
+    <div class="card" style="border-color: var(--blue); border-width: 2px;">
+      <div class="card-header">
+        <div class="card-title">Run v1 for 500 rounds, freeze the partition, switch to FedAvg over the survivors</div>
+        <span class="card-stamp stamp-v1">v3</span>
+      </div>
+      <div class="card-body">
+        Use v1 (full-history graph) for the first 500 rounds &mdash; well below the OOM threshold and v1's per-round cost is fine. At round 500, threshold the posterior, drop workers flagged as malicious, and aggregate the rest with plain FedAvg for the remainder of training.<br><br>
+
+        Properties:
+        <ul>
+          <li>Detection phase pays v1's price (one JIT compile, ~6 s/round, ~25k factors at round 500 &mdash; well under the ceiling).</li>
+          <li>Post-500: no factor graph, no BP, no compile. FedAvg is essentially free.</li>
+          <li>Both memory and wall-clock are bounded by construction.</li>
+        </ul>
+
+        Caveats:
+        <ul>
+          <li>One-shot exclusion. A worker that turns Byzantine after round 500 won't be caught.</li>
+          <li>Threshold becomes a new knob; mis-calibration either drops honest workers or keeps malicious ones.</li>
+          <li>Assumes the v1 posterior has stabilised by round 500.</li>
+        </ul>
+      </div>
+      <div class="card-tags">
+        <span class="tag tag-design">Design v3</span>
+        <span class="tag tag-fix">Bounded</span>
+        <span class="tag">Detect-then-trust</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center; padding: 24px 0 8px; font-size: 11px; color: var(--text-muted); font-family: var(--mono);">
+    Windowed BP Memory Redesign &middot; April 2026
+  </div>
+
+</body>
+
+</html>

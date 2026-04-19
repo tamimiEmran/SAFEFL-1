@@ -1,0 +1,2817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920">
+  <title>FactorGraphs &mdash; Experiment Plan</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #F8F9FB;
+      --bg-card: #FFFFFF;
+      --bg-elevated: #F0F1F4;
+      --border: #E0E2E8;
+      --text: #1A1D26;
+      --text-dim: #5A5E6E;
+      --text-muted: #8E92A0;
+      --accent: #0E9A7E;
+      --accent-dim: rgba(14, 154, 126, 0.08);
+      --red: #D9453E;
+      --red-dim: rgba(217, 69, 62, 0.07);
+      --blue: #3B6FD6;
+      --blue-dim: rgba(59, 111, 214, 0.08);
+      --purple: #8B5CC4;
+      --purple-dim: rgba(139, 92, 196, 0.08);
+      --amber: #C88A1A;
+      --amber-dim: rgba(200, 138, 26, 0.08);
+      --teal: #0A7C8C;
+      --teal-dim: rgba(10, 124, 140, 0.08);
+      --font: 'DM Sans', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 48px 64px;
+    }
+
+    /* === Page Header === */
+    .page-header { margin-bottom: 48px; }
+    .page-header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 6px; }
+    .page-header p { font-size: 14px; color: var(--text-dim); }
+
+    /* === Sections === */
+    .section { margin-bottom: 56px; }
+    .section-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 6px; }
+    .section-subtitle { font-size: 14px; color: var(--text-dim); margin-bottom: 28px; }
+
+    /* === Cards === */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .card + .card { margin-top: 16px; }
+
+    /* === Summary Cards === */
+    .summary-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+    .summary-card { border-radius: 8px; padding: 20px; text-align: center; }
+    .summary-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); color: var(--text-dim); }
+    .summary-card .value { font-size: 36px; font-weight: 700; font-family: var(--mono); }
+    .summary-card .detail { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+    /* === Data Table === */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    .data-table th { text-align: left; font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    .data-table td { padding: 10px 14px; color: var(--text-dim); border-bottom: 1px solid var(--border); }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table .num { font-family: var(--mono); font-size: 13px; }
+    .data-table .pos { color: var(--accent); }
+    .data-table .neg { color: var(--red); }
+    .data-table .blue-text { color: var(--blue); }
+    .data-table .amber-text { color: var(--amber); }
+    .data-table .purple-text { color: var(--purple); }
+    .data-table .teal-text { color: var(--teal); }
+
+    /* === Phase Card === */
+    .phase-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 28px 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+      margin-bottom: 20px;
+      position: relative;
+    }
+    .phase-card .phase-badge {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+    .phase-card .phase-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 4px;
+    }
+    .phase-card .phase-question {
+      font-size: 15px;
+      color: var(--text-dim);
+      font-style: italic;
+      margin-bottom: 16px;
+      padding-left: 14px;
+      border-left: 3px solid var(--border);
+    }
+    .phase-card .phase-body { font-size: 14px; color: var(--text-dim); line-height: 1.65; }
+    .phase-card .phase-body strong { color: var(--text); font-weight: 600; }
+    .phase-card .phase-body ul { padding-left: 20px; margin: 8px 0; }
+    .phase-card .phase-body li { margin-bottom: 4px; }
+
+    .phase-card .phase-meta {
+      display: flex;
+      gap: 24px;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .phase-card .phase-meta .meta-value { font-weight: 600; color: var(--text); }
+
+    .phase-card .outcome-box {
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      margin-top: 14px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    .phase-card .outcome-box .outcome-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    /* badge colors */
+    .badge-anchor   { background: var(--accent-dim); color: var(--accent); }
+    .badge-problem  { background: var(--red-dim); color: var(--red); }
+    .badge-solution { background: var(--blue-dim); color: var(--blue); }
+    .badge-robust   { background: var(--purple-dim); color: var(--purple); }
+    .badge-general  { background: var(--amber-dim); color: var(--amber); }
+    .badge-ablation { background: rgba(90,94,110,0.08); color: var(--text-dim); }
+    .badge-arch     { background: var(--teal-dim); color: var(--teal); }
+
+    /* === Variable Grid === */
+    .var-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .var-item {
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+    }
+    .var-item .var-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .var-item .var-values {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .var-tag {
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+
+    /* === Flow Arrow === */
+    .flow-connector {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 0;
+      color: var(--text-muted);
+    }
+    .flow-connector svg { width: 20px; height: 20px; }
+
+    /* === Bar Charts (horizontal) === */
+    .bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .bar-label { width: 120px; text-align: right; font-family: var(--mono); font-size: 13px; color: var(--text-dim); flex-shrink: 0; }
+    .bar-track { flex: 1; display: flex; height: 24px; border-radius: 4px; overflow: hidden; background: var(--bg-elevated); }
+    .bar-fill { height: 100%; transition: width 0.3s ease; border-radius: 4px; }
+
+    /* === TOC Nav === */
+    .toc {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 40px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .toc-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    .toc-items { display: flex; flex-wrap: wrap; gap: 8px; }
+    .toc-items a {
+      font-size: 13px;
+      color: var(--text-dim);
+      text-decoration: none;
+      padding: 5px 14px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-elevated);
+      transition: all 0.15s ease;
+    }
+    .toc-items a:hover { background: var(--accent-dim); color: var(--accent); }
+
+    /* === Dependency line === */
+    .dep-tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      background: var(--amber-dim);
+      color: var(--amber);
+    }
+
+    /* === Heatmap Grid === */
+    .heatmap-grid {
+      display: grid;
+      gap: 2px;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .heatmap-cell {
+      padding: 8px 6px;
+      text-align: center;
+      border-radius: 3px;
+    }
+    .heatmap-header {
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* === Interactive Decision Panels === */
+    .decision-panel {
+      background: var(--accent-dim);
+      border: 1px solid rgba(14, 154, 126, 0.18);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-top: 18px;
+      position: relative;
+    }
+    .decision-panel::before {
+      content: 'INTERACTIVE';
+      position: absolute;
+      top: -9px;
+      left: 20px;
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--bg-card);
+      padding: 0 8px;
+      border: 1px solid rgba(14, 154, 126, 0.18);
+      border-radius: 3px;
+    }
+    .decision-panel-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    .decision-panel-description {
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-bottom: 14px;
+      line-height: 1.55;
+    }
+
+    /* Clickable grid cells for Phase 0 */
+    .grid-cell-clickable {
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+      border: 2px solid transparent;
+    }
+    .grid-cell-clickable:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .grid-cell-clickable.selected {
+      border-color: var(--accent);
+      background: var(--accent-dim) !important;
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    .grid-cell-clickable.selected::after {
+      content: 'SELECTED';
+      display: block;
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-top: 4px;
+    }
+
+    /* Decision selection display */
+    .decision-selection {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+    .decision-selection .sel-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .decision-selection.empty {
+      color: var(--text-muted);
+      border-style: dashed;
+    }
+    .decision-selection.empty .sel-dot {
+      background: var(--text-muted);
+      opacity: 0.3;
+    }
+
+    /* Command code blocks */
+    .cmd-block {
+      background: #1A1D26;
+      color: #E0E2E8;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      margin-top: 10px;
+      position: relative;
+      line-height: 1.6;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .cmd-block .cmd-copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #E0E2E8;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      padding: 3px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .cmd-block .cmd-copy-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    .cmd-block .cmd-copy-btn.copied {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* Checkbox and button controls */
+    .decision-checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .decision-checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .decision-checkbox-item:hover {
+      border-color: var(--accent);
+    }
+    .decision-checkbox-item input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    .decision-checkbox-item label {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .decision-checkbox-item.checked {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .decision-checkbox-item.collapsed {
+      border-color: var(--red);
+      background: var(--red-dim);
+    }
+    .decision-checkbox-item .cb-status {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .decision-checkbox-item .cb-status.survived {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+    .decision-checkbox-item .cb-status.collapsed-tag {
+      background: var(--red-dim);
+      color: var(--red);
+    }
+
+    /* Decision buttons */
+    .decision-btn-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .decision-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-card);
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .decision-btn:hover {
+      border-color: var(--text-muted);
+    }
+    .decision-btn.btn-yes {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .decision-btn.btn-yes:hover, .decision-btn.btn-yes.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+    .decision-btn.btn-no {
+      border-color: var(--red);
+      color: var(--red);
+    }
+    .decision-btn.btn-no:hover, .decision-btn.btn-no.active {
+      background: var(--red-dim);
+      border-color: var(--red);
+    }
+    .decision-btn.active {
+      font-weight: 700;
+      box-shadow: 0 0 0 3px rgba(14,154,126,0.12);
+    }
+    .decision-btn.btn-no.active {
+      box-shadow: 0 0 0 3px rgba(217,69,62,0.12);
+    }
+
+    /* Radio button group */
+    .decision-radio-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .decision-radio-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .decision-radio-item:hover {
+      border-color: var(--amber);
+    }
+    .decision-radio-item input[type="radio"] {
+      accent-color: var(--amber);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    .decision-radio-item label {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .decision-radio-item.selected {
+      border-color: var(--amber);
+      background: var(--amber-dim);
+    }
+
+    /* Warning box */
+    .decision-warning {
+      background: var(--red-dim);
+      border: 1px solid rgba(217,69,62,0.2);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--red);
+      font-weight: 500;
+      display: none;
+    }
+    .decision-warning.visible {
+      display: block;
+    }
+
+    /* Read-only info display */
+    .decision-readonly {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+    .decision-readonly .ro-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .decision-readonly .ro-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .decision-readonly .ro-grid-item {
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 3px;
+      background: var(--bg-elevated);
+      text-align: center;
+    }
+
+    /* Computed info */
+    .decision-computed {
+      background: var(--blue-dim);
+      border: 1px solid rgba(59,111,214,0.15);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--blue);
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+
+    /* Phase decided indicator */
+    .phase-decided-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--accent-dim);
+      padding: 3px 10px;
+      border-radius: 4px;
+      margin-left: 10px;
+    }
+    .phase-decided-indicator.undecided {
+      color: var(--text-muted);
+      background: var(--bg-elevated);
+    }
+
+    /* Completion message */
+    .decision-complete {
+      background: var(--accent-dim);
+      border: 1px solid rgba(14,154,126,0.2);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* Sticky command bar */
+    .sticky-command-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #1A1D26;
+      border-top: 2px solid var(--accent);
+      padding: 14px 24px;
+      z-index: 1000;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+      display: flex;
+      align-items: flex-start;
+      gap: 24px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #E0E2E8;
+    }
+    .sticky-command-bar .scb-section {
+      flex: 1;
+      min-width: 0;
+    }
+    .sticky-command-bar .scb-label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+    .sticky-command-bar .scb-phases {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .sticky-command-bar .scb-phase-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.3);
+    }
+    .sticky-command-bar .scb-phase-dot.decided {
+      background: var(--accent);
+      color: #fff;
+    }
+    .sticky-command-bar .scb-phase-dot.current {
+      background: var(--amber);
+      color: #fff;
+    }
+    .sticky-command-bar .scb-next-cmd {
+      background: rgba(255,255,255,0.06);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+      overflow-x: auto;
+      position: relative;
+      padding-right: 70px;
+    }
+    .sticky-command-bar .scb-next-cmd .cmd-copy-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+    }
+    .sticky-command-bar .scb-config-snippet {
+      background: rgba(255,255,255,0.06);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      max-height: 80px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      font-size: 11px;
+      position: relative;
+      padding-right: 70px;
+    }
+    .sticky-command-bar .scb-config-snippet .cmd-copy-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+    }
+
+    /* Add bottom padding to body to account for sticky bar */
+    body {
+      padding-bottom: 130px;
+    }
+
+    /* === Print === */
+    @media print {
+      body { padding: 24px; }
+      .phase-card { break-inside: avoid; }
+      .sticky-command-bar { display: none; }
+      .decision-panel { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============ HEADER ============ -->
+  <div class="page-header">
+    <h1>FactorGraphs &mdash; Experiment Plan</h1>
+    <p>Question-driven experimental design &middot; Generated 2026-04-04 &middot; Byzantine Detection over Secure Aggregates</p>
+  </div>
+
+  <!-- ============ TOC ============ -->
+  <div class="toc">
+    <div class="toc-title">Jump to Section</div>
+    <div class="toc-items">
+      <a href="#overview">Overview</a>
+      <a href="#variables">Variable Space</a>
+      <a href="#phases">Experiment Phases</a>
+      <a href="#sensitivity">Sensitivity Grid</a>
+      <a href="#budget">Run Budget</a>
+      <a href="#flow">Dependency Flow</a>
+      <a href="#mapping">Paper Mapping</a>
+    </div>
+  </div>
+
+  <!-- ============ OVERVIEW ============ -->
+  <div class="section" id="overview">
+    <div class="section-title">Overview</div>
+    <div class="section-subtitle">Why a structured plan instead of a full sweep</div>
+
+    <div class="summary-cards">
+      <div class="summary-card card">
+        <div class="label">Full Sweep</div>
+        <div class="value" style="color: var(--red);">6,750</div>
+        <div class="detail">configurations (not feasible)</div>
+      </div>
+      <div class="summary-card card">
+        <div class="label">Planned Runs</div>
+        <div class="value" style="color: var(--accent);">~86</div>
+        <div class="detail">question-driven experiments</div>
+      </div>
+      <div class="summary-card card">
+        <div class="label">Phases</div>
+        <div class="value" style="color: var(--blue);">8</div>
+        <div class="detail">sequential, with early narrowing</div>
+      </div>
+      <div class="summary-card card">
+        <div class="label">Paper Artifacts</div>
+        <div class="value" style="color: var(--purple);">8</div>
+        <div class="detail">tables &amp; figures to fill</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p style="font-size: 14px; color: var(--text-dim); line-height: 1.7;">
+        <strong style="color: var(--text);">Strategy:</strong> Each experiment phase answers exactly one research question. Early phases narrow down datasets and architectures,
+        so later phases don't need a full sweep. If a surprise emerges (e.g., a baseline doesn't collapse as expected), the plan pivots
+        before burning more compute. Every phase produces a self-contained result that maps to a specific table or figure in the paper.
+      </p>
+      <p style="font-size: 14px; color: var(--text-dim); line-height: 1.7; margin-top: 8px;">
+        <strong style="color: var(--text);">Full sweep math:</strong>
+        <span style="font-family: var(--mono); font-size: 13px;">3 datasets &times; 3 archs &times; 5 &beta; &times; 2 attacks &times; 5 methods &times; 5 grouping &times; 3 nbyz = 6,750</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- ============ VARIABLE SPACE ============ -->
+  <div class="section" id="variables">
+    <div class="section-title">Variable Space</div>
+    <div class="section-subtitle">All experimental dimensions &mdash; a full cross-product is 6,750 configurations</div>
+
+    <div class="card">
+      <div class="var-grid">
+        <div class="var-item">
+          <div class="var-label">Datasets</div>
+          <div class="var-values">
+            <span class="var-tag">MNIST</span>
+            <span class="var-tag">FEMNIST</span>
+            <span class="var-tag">CIFAR-10</span>
+          </div>
+        </div>
+        <div class="var-item">
+          <div class="var-label">Architectures</div>
+          <div class="var-values">
+            <span class="var-tag">MobileNetV3</span>
+            <span class="var-tag">ResNet-18</span>
+            <span class="var-tag">EfficientNet</span>
+          </div>
+        </div>
+        <div class="var-item">
+          <div class="var-label">IID Setting (&beta;)</div>
+          <div class="var-values">
+            <span class="var-tag">0 (IID)</span>
+            <span class="var-tag">0.25</span>
+            <span class="var-tag">0.50</span>
+            <span class="var-tag">0.75</span>
+            <span class="var-tag">1.0</span>
+          </div>
+        </div>
+        <div class="var-item">
+          <div class="var-label">Attacks</div>
+          <div class="var-values">
+            <span class="var-tag">Label Flipping</span>
+            <span class="var-tag">Scaling Backdoor</span>
+          </div>
+        </div>
+        <div class="var-item">
+          <div class="var-label">Defenses</div>
+          <div class="var-values">
+            <span class="var-tag">FedAvg</span>
+            <span class="var-tag">Krum</span>
+            <span class="var-tag">ShieldFL</span>
+            <span class="var-tag">SignGuard</span>
+            <span class="var-tag" style="border-color: var(--accent); color: var(--accent);">FactorGraphs</span>
+          </div>
+        </div>
+        <div class="var-item">
+          <div class="var-label">Group Sizes (k)</div>
+          <div class="var-values">
+            <span class="var-tag">5</span>
+            <span class="var-tag">10</span>
+            <span class="var-tag">20</span>
+            <span class="var-tag">30</span>
+            <span class="var-tag" style="color: var(--text-muted);">+ Non-Grouped</span>
+          </div>
+        </div>
+        <div class="var-item">
+          <div class="var-label">Byzantine Clients (nbyz)</div>
+          <div class="var-values">
+            <span class="var-tag">10 (5%)</span>
+            <span class="var-tag">20 (10%)</span>
+            <span class="var-tag">30 (15%)</span>
+          </div>
+        </div>
+        <div class="var-item">
+          <div class="var-label">Metrics</div>
+          <div class="var-values">
+            <span class="var-tag">Main Accuracy</span>
+            <span class="var-tag">Backdoor ASR</span>
+            <span class="var-tag">Detection Latency</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ EXPERIMENT PHASES ============ -->
+  <div class="section" id="phases">
+    <div class="section-title">Experiment Phases</div>
+    <div class="section-subtitle">Sequential phases &mdash; each answers one question, early results narrow later experiments</div>
+
+    <!-- Phase 0 -->
+    <div class="phase-card" style="padding-bottom: 0;">
+      <span class="phase-badge badge-anchor">Phase 0</span>
+      <div class="phase-title">Baseline Landscape: Dataset &times; Architecture Selection</div>
+      <div class="phase-question">Which dataset-architecture pair produces the most meaningful experimental testbed?</div>
+
+      <!-- Visual flow: What → How → Decide -->
+      <div style="display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 0; margin: 20px 0 24px; text-align: center;">
+        <div style="background: var(--accent-dim); border: 1px solid rgba(14,154,126,0.25); border-radius: var(--radius-sm); padding: 14px 12px;">
+          <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); font-weight: 600;">Run &mdash; Done</div>
+          <div style="font-size: 13px; color: var(--text); margin-top: 4px; font-weight: 500;">18/18 experiments</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">FedAvg only, no defense</div>
+        </div>
+        <div style="color: var(--accent); padding: 0 8px; font-size: 18px;">&rarr;</div>
+        <div style="background: var(--accent-dim); border: 1px solid rgba(14,154,126,0.25); border-radius: var(--radius-sm); padding: 14px 12px;">
+          <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); font-weight: 600;">Measure &mdash; Done</div>
+          <div style="font-size: 13px; color: var(--text); margin-top: 4px; font-weight: 500;">ACC + Attack &Delta;</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Per dataset-arch combo</div>
+        </div>
+        <div style="color: var(--accent); padding: 0 8px; font-size: 18px;">&rarr;</div>
+        <div style="background: var(--purple-dim); border-radius: var(--radius-sm); padding: 14px 12px;">
+          <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--purple); font-weight: 600;">Pick</div>
+          <div style="font-size: 13px; color: var(--text); margin-top: 4px; font-weight: 500;">Anchor combo</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Click grid below to select</div>
+        </div>
+      </div>
+
+      <!-- Run Matrix: visual grid -->
+      <div style="margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+          <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent);">Run Matrix &mdash; 18/18 Complete &mdash; click a cell to select anchor</div>
+          <div style="display: flex; gap: 4px; margin-left: auto;">
+            <button class="acc-toggle active" id="p0-acc-final" onclick="toggleAccMode(0, 'final')" style="font-family: var(--mono); font-size: 10px; padding: 2px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--accent-dim); color: var(--accent); cursor: pointer; font-weight: 500;">Final</button>
+            <button class="acc-toggle" id="p0-acc-best" onclick="toggleAccMode(0, 'best')" style="font-family: var(--mono); font-size: 10px; padding: 2px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-dim); cursor: pointer;">Best</button>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 100px repeat(3, 1fr); gap: 4px;">
+          <!-- Header row -->
+          <div></div>
+          <div style="text-align: center; font-family: var(--mono); font-size: 11px; color: var(--text-muted); padding: 6px; font-weight: 600;">MobileNetV3</div>
+          <div style="text-align: center; font-family: var(--mono); font-size: 11px; color: var(--text-muted); padding: 6px; font-weight: 600;">ResNet-18</div>
+          <div style="text-align: center; font-family: var(--mono); font-size: 11px; color: var(--text-muted); padding: 6px; font-weight: 600;">EfficientNet</div>
+          <!-- MNIST row -->
+          <div style="font-size: 13px; font-weight: 600; padding: 10px 8px; display: flex; align-items: center;">MNIST</div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center; opacity: 0.55;">
+            <div class="p0-acc" data-final="98.01%" data-best="98.04%" style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">98.01%</div>
+            <div class="p0-delta" data-final="&Delta; 1.19pp" data-best="&Delta; 0.08pp" style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; 1.19pp</div>
+          </div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center; opacity: 0.55;">
+            <div class="p0-acc" data-final="98.44%" data-best="98.44%" style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">98.44%</div>
+            <div class="p0-delta" data-final="&Delta; 0.24pp" data-best="&Delta; 0.24pp" style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; 0.24pp</div>
+          </div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center; opacity: 0.55;">
+            <div class="p0-acc" data-final="98.39%" data-best="98.47%" style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">98.39%</div>
+            <div class="p0-delta" data-final="&Delta; 0.12pp" data-best="&Delta; 0.20pp" style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; 0.12pp</div>
+          </div>
+          <!-- FEMNIST row -->
+          <div style="font-size: 13px; font-weight: 600; padding: 10px 8px; display: flex; align-items: center;">FEMNIST</div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center;">
+            <div class="p0-acc" data-final="86.27%" data-best="86.27%" style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">86.27%</div>
+            <div class="p0-delta" data-final="&Delta; 0.87pp" data-best="&Delta; 0.34pp" style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; 0.87pp</div>
+          </div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center;">
+            <div class="p0-acc" data-final="87.15%" data-best="87.15%" style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">87.15%</div>
+            <div class="p0-delta" data-final="&Delta; 1.07pp" data-best="&Delta; 0.23pp" style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; 1.07pp</div>
+          </div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center;">
+            <div class="p0-acc" data-final="86.68%" data-best="87.24%" style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">86.68%</div>
+            <div class="p0-delta" data-final="&Delta; &minus;0.04pp" data-best="&Delta; 0.26pp" style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px;">&Delta; &minus;0.04pp</div>
+          </div>
+          <!-- CIFAR-10 row -->
+          <div style="font-size: 13px; font-weight: 600; padding: 10px 8px; display: flex; align-items: center;">CIFAR-10</div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center;">
+            <div class="p0-acc" data-final="60.78%" data-best="62.94%" style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">60.78%</div>
+            <div class="p0-delta" data-final="&Delta; 6.24pp" data-best="&Delta; 5.78pp" style="font-family: var(--mono); font-size: 11px; color: var(--red); margin-top: 2px;">&Delta; 6.24pp</div>
+          </div>
+          <div style="background: rgba(14, 154, 126, 0.06); border: 1px solid rgba(14, 154, 126, 0.18); border-radius: 4px; padding: 10px; text-align: center;">
+            <div class="p0-acc" data-final="68.67%" data-best="69.01%" style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--accent);">68.67%</div>
+            <div class="p0-delta" data-final="&Delta; 16.98pp" data-best="&Delta; 3.23pp" style="font-family: var(--mono); font-size: 11px; color: var(--red); font-weight: 600; margin-top: 2px;">&Delta; 16.98pp</div>
+          </div>
+          <div style="background: var(--bg-elevated); border-radius: 4px; padding: 10px; text-align: center;">
+            <div class="p0-acc" data-final="60.99%" data-best="61.14%" style="font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text);">60.99%</div>
+            <div class="p0-delta" data-final="&Delta; 7.76pp" data-best="&Delta; 5.68pp" style="font-family: var(--mono); font-size: 11px; color: var(--red); margin-top: 2px;">&Delta; 7.76pp</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 16px; margin-top: 8px; font-family: var(--mono); font-size: 11px; color: var(--text-muted);">
+          <span>ACC = clean accuracy (No Attack, FedAvg)</span>
+          <span>&Delta; = accuracy drop under Label Flipping (pp)</span>
+          <span>Fixed: &beta;=0, nworkers=500, nbyz=50 (10%)</span>
+        </div>
+
+        <!-- Phase 0 Results Analysis -->
+        <div style="margin-top: 16px; background: var(--accent-dim); border: 1px solid rgba(14, 154, 126, 0.18); border-radius: var(--radius-sm); padding: 14px 18px;">
+          <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); font-weight: 600; margin-bottom: 8px;">Phase 0 Results Analysis (nbyz=50, 10% Byzantine)</div>
+          <div style="font-size: 13px; color: var(--text-dim); line-height: 1.65;">
+            <strong style="color: var(--text);">MNIST</strong> still near-trivial: ~98% accuracy at 500 rounds with small drops (0.12&ndash;1.19pp). Even at 10% Byzantine, the dataset is too easy for meaningful defense evaluation.<br>
+            <strong style="color: var(--text);">FEMNIST</strong> shows moderate accuracy (86&ndash;87%) at 2000 rounds with small attack impact (0&ndash;1.07pp). The attack is barely visible &mdash; not enough to differentiate defenses.<br>
+            <strong style="color: var(--text);">CIFAR-10 + ResNet-18</strong> is the clear anchor: highest clean accuracy (68.67%) and a massive <strong style="color: var(--red);">16.98pp attack drop</strong> (68.67% &rarr; 51.69%). This is a strong, unambiguous signal. CIFAR-10 MobileNetV3 and EfficientNet also show 5&ndash;6pp drops, confirming the dataset is genuinely challenging.
+          </div>
+        </div>
+      </div>
+
+      <!-- Detailed Results Table -->
+      <div style="margin-top: 16px; margin-bottom: 24px;">
+        <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 10px;">Detailed Phase 0 Results &mdash; 18 experiments (attack runs: nbyz=50)</div>
+        <table class="data-table" style="font-size: 12.5px;">
+          <thead>
+            <tr>
+              <th>Dataset</th>
+              <th>Architecture</th>
+              <th>Attack</th>
+              <th style="text-align:right">Rounds</th>
+              <th style="text-align:right">Final ACC</th>
+              <th style="text-align:right">Max ACC</th>
+              <th style="text-align:center">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="6"><strong>MNIST</strong></td>
+              <td>MobileNetV3</td><td>No Attack</td>
+              <td class="num" style="text-align:right">500/500</td>
+              <td class="num" style="text-align:right">98.01%</td>
+              <td class="num" style="text-align:right">98.04%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>MobileNetV3</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">500/500</td>
+              <td class="num" style="text-align:right">96.82%</td>
+              <td class="num" style="text-align:right">97.96%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>ResNet-18</td><td>No Attack</td>
+              <td class="num" style="text-align:right">500/500</td>
+              <td class="num" style="text-align:right">98.44%</td>
+              <td class="num" style="text-align:right">98.44%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>ResNet-18</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">500/500</td>
+              <td class="num" style="text-align:right">98.20%</td>
+              <td class="num" style="text-align:right">98.20%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>EfficientNet</td><td>No Attack</td>
+              <td class="num" style="text-align:right">500/500</td>
+              <td class="num" style="text-align:right">98.39%</td>
+              <td class="num" style="text-align:right">98.47%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>EfficientNet</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">500/500</td>
+              <td class="num" style="text-align:right">98.27%</td>
+              <td class="num" style="text-align:right">98.27%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td rowspan="6"><strong>FEMNIST</strong></td>
+              <td>MobileNetV3</td><td>No Attack</td>
+              <td class="num" style="text-align:right">2000/2000</td>
+              <td class="num" style="text-align:right">86.27%</td>
+              <td class="num" style="text-align:right">86.27%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>MobileNetV3</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">2000/2000</td>
+              <td class="num" style="text-align:right">85.40%</td>
+              <td class="num" style="text-align:right">85.93%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>ResNet-18</td><td>No Attack</td>
+              <td class="num" style="text-align:right">2000/2000</td>
+              <td class="num" style="text-align:right">87.15%</td>
+              <td class="num" style="text-align:right">87.15%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>ResNet-18</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">2000/2000</td>
+              <td class="num" style="text-align:right">86.08%</td>
+              <td class="num" style="text-align:right">86.92%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>EfficientNet</td><td>No Attack</td>
+              <td class="num" style="text-align:right">2000/2000</td>
+              <td class="num" style="text-align:right">86.68%</td>
+              <td class="num" style="text-align:right">87.24%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>EfficientNet</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">2000/2000</td>
+              <td class="num" style="text-align:right">86.72%</td>
+              <td class="num" style="text-align:right">86.98%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td rowspan="6"><strong>CIFAR-10</strong></td>
+              <td>MobileNetV3</td><td>No Attack</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num" style="text-align:right">60.78%</td>
+              <td class="num" style="text-align:right">62.94%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>MobileNetV3</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num" style="text-align:right">54.54%</td>
+              <td class="num" style="text-align:right">57.16%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>ResNet-18</td><td>No Attack</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num" style="text-align:right">68.67%</td>
+              <td class="num" style="text-align:right">69.01%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr class="highlight-row">
+              <td>ResNet-18</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num neg" style="text-align:right">51.69%</td>
+              <td class="num" style="text-align:right">65.78%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>EfficientNet</td><td>No Attack</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num" style="text-align:right">60.99%</td>
+              <td class="num" style="text-align:right">61.14%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>EfficientNet</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num" style="text-align:right">53.23%</td>
+              <td class="num" style="text-align:right">55.46%</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 8px;">
+          Per-dataset summary (nbyz=50): MNIST avg &Delta;=0.52pp (500 rds) &middot; FEMNIST avg &Delta;=0.63pp (2000 rds) &middot; CIFAR-10 avg &Delta;=10.33pp (3000 rds, ResNet-18: 16.98pp)</div>
+      </div>
+
+      <!-- Selection Criteria: 3 visual cards -->
+      <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 10px;">Selection Criteria &mdash; pick the combo that passes all three</div>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
+        <div style="border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; text-align: center;">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"><path d="M12 20V4M4 12l8-8 8 8"/></svg>
+          </div>
+          <div style="font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px;">Meaningful Accuracy</div>
+          <div style="font-size: 12px; color: var(--text-dim); line-height: 1.5;">Not trivially high (99%+ hides attack signal) or too low (model doesn't learn).</div>
+        </div>
+        <div style="border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; text-align: center;">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--red-dim); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"><path d="M12 4v16M4 12l8 8 8-8"/></svg>
+          </div>
+          <div style="font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px;">Meaningful Attack &Delta;</div>
+          <div style="font-size: 12px; color: var(--text-dim); line-height: 1.5;">Label Flipping must cause a real accuracy drop. If &Delta; &asymp; 0, the dataset is too easy for defense evaluation.</div>
+        </div>
+        <div style="border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; text-align: center;">
+          <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--blue-dim); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <div style="font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px;">Practical Convergence</div>
+          <div style="font-size: 12px; color: var(--text-dim); line-height: 1.5;">Training must stabilize in a reasonable number of rounds. Slow combos waste compute in all later phases.</div>
+        </div>
+      </div>
+
+      <!-- Elimination examples -->
+      <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px;">Confirmed Eliminations (nbyz=50)</div>
+      <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+        <div style="flex: 1; background: var(--red-dim); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px;">
+          <span style="color: var(--red); font-weight: 600;">All MNIST combos</span>
+          <span style="color: var(--text-dim);"> &mdash; ~98% ACC at 500 rounds, &Delta; &lt; 1.2pp even at 10% Byzantine. Too easy for defense evaluation.</span>
+        </div>
+        <div style="flex: 1; background: var(--red-dim); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px;">
+          <span style="color: var(--red); font-weight: 600;">All FEMNIST combos</span>
+          <span style="color: var(--text-dim);"> &mdash; 86&ndash;87% ACC at 2000 rounds, &Delta; &lt; 1.1pp. Attack barely visible, insufficient for defense evaluation.</span>
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px; margin-bottom: 24px;">
+        <div style="flex: 1; background: var(--accent-dim); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px;">
+          <span style="color: var(--accent); font-weight: 600;">CIFAR-10 + ResNet-18 &mdash; clear anchor</span>
+          <span style="color: var(--text-dim);"> &mdash; 68.67% clean ACC, <strong>16.98pp attack drop</strong> to 51.69%. Strongest signal by far. Attack has real teeth here.</span>
+        </div>
+        <div style="flex: 1; background: var(--amber-dim); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px;">
+          <span style="color: var(--amber); font-weight: 600;">CIFAR-10 MobileNet/EfficientNet</span>
+          <span style="color: var(--text-dim);"> &mdash; ~60% ACC, &Delta; 5&ndash;6pp. Meaningful drops but lower base accuracy. Could serve as secondary validation.</span>
+        </div>
+      </div>
+
+      <div class="phase-meta" style="margin-top: 0; padding-top: 14px; margin-bottom: 24px;">
+        <div>Runs: <span class="meta-value">18</span></div>
+        <div>Dependencies: <span class="meta-value">None</span></div>
+        <div>Fills: <span class="meta-value">Baseline Landscape table (new paper artifact)</span></div>
+      </div>
+
+      <!-- Decision Panel: Phase 0 -->
+      <div class="decision-panel" id="decision-panel-0" style="margin-bottom: 24px;">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 0</div>
+        <div class="decision-panel-description">Click a cell in the run matrix above to select the anchor dataset + architecture pair. This choice propagates to all downstream phases.</div>
+        <div class="decision-selection empty" id="p0-selection">
+          <span class="sel-dot"></span>
+          <span id="p0-selection-text">No anchor selected &mdash; click a grid cell above</span>
+        </div>
+        <div id="p0-cmd-area" style="display:none;">
+          <div class="cmd-block" id="p0-decide-cmd">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p0-decide-cmd-text"></span>
+          </div>
+          <div style="margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Next: Run Phase 1</div>
+          <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">emran:</div>
+          <div class="cmd-block" id="p0-next-cmd-emran">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p0-next-cmd-text-emran"></span>
+          </div>
+          <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">moaz:</div>
+          <div class="cmd-block" id="p0-next-cmd-moaz">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p0-next-cmd-text-moaz"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M6 12l4 4 4-4"/></svg>
+    </div>
+
+    <!-- Phase 1 -->
+    <div class="phase-card">
+      <span class="phase-badge badge-problem">Phase 1</span>
+      <div class="phase-title">Establish the Problem: Grouping Failure</div>
+      <div class="phase-question">Do standard defenses collapse when forced to operate on secure groups?</div>
+      <div class="phase-body">
+        <p>This is the <strong>motivating experiment</strong> &mdash; the entire paper's premise rests on this result. It must be airtight.</p>
+        <ul>
+          <li>4 baselines (FedAvg, Krum, ShieldFL, SignGuard) &times; 2 modes (Grouped k=10, Non-Grouped)</li>
+          <li>&times; 2 scenarios (No Attack + Label Flipping) &times; CIFAR10/ResNet-18 (anchor)</li>
+          <li>Fixed: nbyz=50, &beta;=0, niter=3000</li>
+          <li>= <strong>16 runs</strong></li>
+        </ul>
+        <p><strong>Key claim to validate:</strong> Krum collapses under grouping. If ShieldFL or SignGuard also collapse, simplify later comparisons by dropping them.</p>
+      </div>
+
+      <!-- Phase 1 Partial Results -->
+      <div style="margin-top: 16px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+          <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);">Phase 1 Results &mdash; 16/16 experiments</div>
+          <div style="display: flex; gap: 4px; margin-left: auto;">
+            <button class="acc-toggle active" id="p1-acc-final" onclick="toggleAccMode(1, 'final')" style="font-family: var(--mono); font-size: 10px; padding: 2px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--accent-dim); color: var(--accent); cursor: pointer; font-weight: 500;">Final</button>
+            <button class="acc-toggle" id="p1-acc-best" onclick="toggleAccMode(1, 'best')" style="font-family: var(--mono); font-size: 10px; padding: 2px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-dim); cursor: pointer;">Best</button>
+          </div>
+        </div>
+        <table class="data-table" style="font-size: 12.5px;">
+          <thead>
+            <tr>
+              <th>Defence</th>
+              <th>Grouped</th>
+              <th>Attack</th>
+              <th style="text-align:right">Rounds</th>
+              <th style="text-align:right">Final ACC</th>
+              <th style="text-align:right">Max ACC</th>
+              <th style="text-align:right">Grouping &Delta;</th>
+              <th style="text-align:right">vs FedAvg &Delta;</th>
+              <th style="text-align:right">vs FA Clean &Delta;</th>
+              <th style="text-align:center">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="4"><strong>FedAvg</strong></td>
+              <td>No</td><td>Clean</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="68.67%" data-best="69.01%" style="text-align:right">68.67%</td>
+              <td class="num p1-max" data-final="69.01%" data-best="69.01%" style="text-align:right">69.01%</td>
+              <td class="num" style="text-align:right; color: var(--text-muted);">baseline</td>
+              <td class="num" style="text-align:right; color: var(--text-muted);">baseline</td>
+              <td class="num" style="text-align:right; color: var(--text-muted);">baseline</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>No</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="51.69%" data-best="65.78%" style="text-align:right">51.69%</td>
+              <td class="num p1-max" data-final="65.78%" data-best="65.78%" style="text-align:right">65.78%</td>
+              <td class="num" style="text-align:right; color: var(--text-muted);">baseline</td>
+              <td class="num" style="text-align:right; color: var(--text-muted);">baseline</td>
+              <td class="num p1-base-delta" data-final="-16.98pp" data-best="-3.23pp" style="background: rgba(234, 179, 8, 0.15); text-align:right; color: var(--red);">-16.98pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>Yes (k=10)</td><td>Clean</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="64.40%" data-best="69.43%" style="text-align:right">64.40%</td>
+              <td class="num p1-max" data-final="69.43%" data-best="69.43%" style="text-align:right">69.43%</td>
+              <td class="num p1-grp-delta" data-final="-4.27pp" data-best="+0.42pp" style="text-align:right; color: var(--red);">-4.27pp</td>
+              <td class="num" style="text-align:right; color: var(--text-muted);">baseline</td>
+              <td class="num p1-base-delta" data-final="-4.27pp" data-best="+0.42pp" style="text-align:right; color: var(--red);">-4.27pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>Yes (k=10)</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="61.83%" data-best="64.64%" style="text-align:right">61.83%</td>
+              <td class="num p1-max" data-final="64.64%" data-best="64.64%" style="text-align:right">64.64%</td>
+              <td class="num p1-grp-delta" data-final="+10.14pp" data-best="-1.14pp" style="text-align:right; color: var(--accent); font-weight: 500;">+10.14pp</td>
+              <td class="num" style="text-align:right; color: var(--text-muted);">baseline</td>
+              <td class="num p1-base-delta" data-final="-6.84pp" data-best="-4.37pp" style="background: rgba(234, 179, 8, 0.32); text-align:right; color: var(--red);">-6.84pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td rowspan="4"><strong>Krum</strong></td>
+              <td>No</td><td>Clean</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="45.11%" data-best="47.16%" style="text-align:right">45.11%</td>
+              <td class="num p1-max" data-final="47.16%" data-best="47.16%" style="text-align:right">47.16%</td>
+              <td class="num" style="text-align:right; color: var(--text-muted);">baseline</td>
+              <td class="num p1-fa-delta" data-final="-23.56pp" data-best="-21.85pp" style="text-align:right; color: var(--red);">-23.56pp</td>
+              <td class="num p1-base-delta" data-final="-23.56pp" data-best="-21.85pp" style="text-align:right; color: var(--red);">-23.56pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>No</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="44.92%" data-best="46.52%" style="text-align:right">44.92%</td>
+              <td class="num p1-max" data-final="46.52%" data-best="46.52%" style="text-align:right">46.52%</td>
+              <td class="num" style="text-align:right; color: var(--text-muted);">baseline</td>
+              <td class="num p1-fa-delta" data-final="-6.77pp" data-best="-19.26pp" style="text-align:right; color: var(--red);">-6.77pp</td>
+              <td class="num p1-base-delta" data-final="-23.75pp" data-best="-22.49pp" style="background: rgba(234, 179, 8, 0.15); text-align:right; color: var(--red);">-23.75pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>Yes (k=10)</td><td>Clean</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="66.40%" data-best="68.57%" style="text-align:right">66.40%</td>
+              <td class="num p1-max" data-final="68.57%" data-best="68.57%" style="text-align:right">68.57%</td>
+              <td class="num p1-grp-delta" data-final="+21.29pp" data-best="+21.41pp" style="text-align:right; color: var(--accent); font-weight: 500;">+21.29pp</td>
+              <td class="num p1-fa-delta" data-final="+2.00pp" data-best="-0.86pp" style="text-align:right; color: var(--accent); font-weight: 500;">+2.00pp</td>
+              <td class="num p1-base-delta" data-final="-2.27pp" data-best="-0.44pp" style="text-align:right; color: var(--red);">-2.27pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>Yes (k=10)</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="69.44%" data-best="71.00%" style="text-align:right">69.44%</td>
+              <td class="num p1-max" data-final="71.00%" data-best="71.00%" style="text-align:right">71.00%</td>
+              <td class="num p1-grp-delta" data-final="+24.52pp" data-best="+24.48pp" style="text-align:right; color: var(--accent); font-weight: 500;">+24.52pp</td>
+              <td class="num p1-fa-delta" data-final="+7.61pp" data-best="+6.36pp" style="text-align:right; color: var(--accent); font-weight: 500;">+7.61pp</td>
+              <td class="num p1-base-delta" data-final="+0.77pp" data-best="+1.99pp" style="background: rgba(234, 179, 8, 0.32); text-align:right; color: var(--accent); font-weight: 500;">+0.77pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td rowspan="4"><strong>ShieldFL</strong></td>
+              <td>No</td><td>Clean</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="58.75%" data-best="59.65%" style="text-align:right">58.75%</td>
+              <td class="num p1-max" data-final="59.65%" data-best="59.65%" style="text-align:right">59.65%</td>
+              <td class="num" style="text-align:right; color: var(--text-muted);">baseline</td>
+              <td class="num p1-fa-delta" data-final="-9.92pp" data-best="-9.36pp" style="text-align:right; color: var(--red);">-9.92pp</td>
+              <td class="num p1-base-delta" data-final="-9.92pp" data-best="-9.36pp" style="text-align:right; color: var(--red);">-9.92pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>No</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="56.31%" data-best="57.92%" style="text-align:right">56.31%</td>
+              <td class="num p1-max" data-final="57.92%" data-best="57.92%" style="text-align:right">57.92%</td>
+              <td class="num" style="text-align:right; color: var(--text-muted);">baseline</td>
+              <td class="num p1-fa-delta" data-final="+4.62pp" data-best="-7.86pp" style="text-align:right; color: var(--accent); font-weight: 500;">+4.62pp</td>
+              <td class="num p1-base-delta" data-final="-12.36pp" data-best="-11.09pp" style="background: rgba(234, 179, 8, 0.15); text-align:right; color: var(--red);">-12.36pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>Yes (k=10)</td><td>Clean</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="60.36%" data-best="61.74%" style="text-align:right">60.36%</td>
+              <td class="num p1-max" data-final="61.74%" data-best="61.74%" style="text-align:right">61.74%</td>
+              <td class="num p1-grp-delta" data-final="+1.61pp" data-best="+2.09pp" style="text-align:right; color: var(--accent); font-weight: 500;">+1.61pp</td>
+              <td class="num p1-fa-delta" data-final="-4.04pp" data-best="-7.69pp" style="text-align:right; color: var(--red);">-4.04pp</td>
+              <td class="num p1-base-delta" data-final="-8.31pp" data-best="-7.27pp" style="text-align:right; color: var(--red);">-8.31pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>Yes (k=10)</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="57.34%" data-best="58.47%" style="text-align:right">57.34%</td>
+              <td class="num p1-max" data-final="58.47%" data-best="58.47%" style="text-align:right">58.47%</td>
+              <td class="num p1-grp-delta" data-final="+1.03pp" data-best="+0.55pp" style="text-align:right; color: var(--accent); font-weight: 500;">+1.03pp</td>
+              <td class="num p1-fa-delta" data-final="-4.49pp" data-best="-6.17pp" style="text-align:right; color: var(--red);">-4.49pp</td>
+              <td class="num p1-base-delta" data-final="-11.33pp" data-best="-10.54pp" style="background: rgba(234, 179, 8, 0.32); text-align:right; color: var(--red);">-11.33pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td rowspan="4"><strong>SignGuard</strong></td>
+              <td>No</td><td>Clean</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="68.17%" data-best="69.61%" style="text-align:right">68.17%</td>
+              <td class="num p1-max" data-final="69.61%" data-best="69.61%" style="text-align:right">69.61%</td>
+              <td class="num" style="text-align:right; color: var(--text-muted);">baseline</td>
+              <td class="num p1-fa-delta" data-final="-0.50pp" data-best="+0.60pp" style="text-align:right; color: var(--red);">-0.50pp</td>
+              <td class="num p1-base-delta" data-final="-0.50pp" data-best="+0.60pp" style="text-align:right; color: var(--red);">-0.50pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>No</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="63.12%" data-best="64.39%" style="text-align:right">63.12%</td>
+              <td class="num p1-max" data-final="64.39%" data-best="64.39%" style="text-align:right">64.39%</td>
+              <td class="num" style="text-align:right; color: var(--text-muted);">baseline</td>
+              <td class="num p1-fa-delta" data-final="+11.43pp" data-best="-1.39pp" style="text-align:right; color: var(--accent); font-weight: 500;">+11.43pp</td>
+              <td class="num p1-base-delta" data-final="-5.55pp" data-best="-4.62pp" style="background: rgba(234, 179, 8, 0.15); text-align:right; color: var(--red);">-5.55pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>Yes (k=10)</td><td>Clean</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="67.97%" data-best="69.80%" style="text-align:right">67.97%</td>
+              <td class="num p1-max" data-final="69.80%" data-best="69.80%" style="text-align:right">69.80%</td>
+              <td class="num p1-grp-delta" data-final="-0.20pp" data-best="+0.19pp" style="text-align:right; color: var(--red);">-0.20pp</td>
+              <td class="num p1-fa-delta" data-final="+3.57pp" data-best="+0.37pp" style="text-align:right; color: var(--accent); font-weight: 500;">+3.57pp</td>
+              <td class="num p1-base-delta" data-final="-0.70pp" data-best="+0.79pp" style="text-align:right; color: var(--red);">-0.70pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+            <tr>
+              <td>Yes (k=10)</td><td>LF (nbyz=50)</td>
+              <td class="num" style="text-align:right">3000/3000</td>
+              <td class="num p1-acc" data-final="61.92%" data-best="66.01%" style="text-align:right">61.92%</td>
+              <td class="num p1-max" data-final="66.01%" data-best="66.01%" style="text-align:right">66.01%</td>
+              <td class="num p1-grp-delta" data-final="-1.20pp" data-best="+1.62pp" style="text-align:right; color: var(--red);">-1.20pp</td>
+              <td class="num p1-fa-delta" data-final="+0.09pp" data-best="+1.37pp" style="text-align:right; color: var(--accent); font-weight: 500;">+0.09pp</td>
+              <td class="num p1-base-delta" data-final="-6.75pp" data-best="-3.00pp" style="background: rgba(234, 179, 8, 0.32); text-align:right; color: var(--red);">-6.75pp</td>
+              <td style="text-align:center"><span class="num pos">Done</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Early observations -->
+        <div style="margin-top: 12px; background: var(--blue-dim); border: 1px solid rgba(59,111,214,0.18); border-radius: var(--radius-sm); padding: 14px 18px;">
+          <div style="font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--blue); font-weight: 600; margin-bottom: 8px;">Observations (16/16 complete)</div>
+          <div style="font-size: 13px; color: var(--text-dim); line-height: 1.65;">
+            <strong style="color: var(--text);">FedAvg grouping (k=10):</strong> Clean accuracy drops 4.27pp (68.67% &rarr; 64.40%). Under attack, grouped FedAvg (61.83%) <em>outperforms</em> ungrouped (51.69%) by 10.14pp &mdash; grouping provides attack resilience at the cost of clean accuracy.<br>
+            <strong style="color: var(--text);">Krum &mdash; dramatic recovery with grouping:</strong> Ungrouped Krum collapses at ~45% (both clean and under attack) because the single-best gradient selection breaks down with 500 workers. Grouping rescues it: clean 66.40% (<strong style="color: var(--accent);">+21.29pp</strong>), under attack 69.44% (<strong style="color: var(--accent);">+24.52pp</strong>). Grouped Krum is the <em>highest-accuracy</em> result in the phase.<br>
+            <strong style="color: var(--text);">ShieldFL:</strong> Moderate across the board (56&ndash;61%). Grouping gives a small improvement in both settings (+1.61pp clean, +1.03pp attack) &mdash; neither breaks nor rescues the defence.<br>
+            <strong style="color: var(--text);">SignGuard:</strong> Strongest ungrouped defence (clean 68.17%, attack 63.12%). Grouping yields a marginal cost (&minus;0.20pp clean, &minus;1.20pp attack), with grouped-best accuracy still reaching 69.80%.
+          </div>
+        </div>
+      </div>
+
+      <div class="outcome-box">
+        <div class="outcome-label">Outcome</div>
+        Fills <strong>Table 1</strong> (Grouping Impact &Delta;) and <strong>Fig. 1</strong> (accuracy curves). Identifies which baselines survive grouping.
+      </div>
+      <div class="phase-meta">
+        <div>Runs: <span class="meta-value">16</span></div>
+        <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 0</span></span></div>
+        <div>Fills: <span class="meta-value">Table 1 + Fig. 1</span></div>
+      </div>
+
+      <!-- Decision Panel: Phase 1 -->
+      <div class="decision-panel" id="decision-panel-1">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 1</div>
+        <div class="decision-panel-description" id="p1-description">Check baselines that <strong>survived</strong> grouping (unchecked = collapsed). Collapsed baselines will be dropped from Phase 4+ comparisons.</div>
+        <div class="decision-checkbox-group" id="p1-checkboxes">
+          <div class="decision-checkbox-item collapsed" id="p1-cb-krum" onclick="toggleBaseline('krum')">
+            <input type="checkbox" id="p1-check-krum">
+            <label for="p1-check-krum">krum</label>
+            <span class="cb-status collapsed-tag" id="p1-status-krum">collapsed</span>
+          </div>
+          <div class="decision-checkbox-item collapsed" id="p1-cb-shieldfl" onclick="toggleBaseline('shieldfl')">
+            <input type="checkbox" id="p1-check-shieldfl">
+            <label for="p1-check-shieldfl">shieldfl</label>
+            <span class="cb-status collapsed-tag" id="p1-status-shieldfl">collapsed</span>
+          </div>
+          <div class="decision-checkbox-item collapsed" id="p1-cb-signguard" onclick="toggleBaseline('signguard')">
+            <input type="checkbox" id="p1-check-signguard">
+            <label for="p1-check-signguard">signguard</label>
+            <span class="cb-status collapsed-tag" id="p1-status-signguard">collapsed</span>
+          </div>
+        </div>
+        <div class="decision-computed" id="p1-carry-forward">
+          Carry forward to Phase 4+: <strong>FedAvg</strong> (always) + <strong>FactorGraphs</strong> (always). No baselines surviving &mdash; comparisons will be FactorGraphs vs FedAvg only.
+        </div>
+        <div id="p1-cmd-area">
+          <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Record decision + run next phases</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p1-decide-cmd-text">python experiment_runner.py --decide 1</span>
+          </div>
+          <div style="margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Next: Run Phase 2 + Phase 3</div>
+          <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">emran:</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p1-next-cmd-text-emran">python experiment_runner.py --cloud_id emran --phase 2 && python experiment_runner.py --cloud_id emran --phase 3</span>
+          </div>
+          <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">moaz:</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p1-next-cmd-text-moaz">python experiment_runner.py --cloud_id moaz --phase 2 && python experiment_runner.py --cloud_id moaz --phase 3</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M6 12l4 4 4-4"/></svg>
+    </div>
+
+    <!-- Phase 2 -->
+    <div class="phase-card">
+      <span class="phase-badge badge-solution">Phase 2</span>
+      <div class="phase-title">Establish the Solution: Inference Recovery</div>
+      <div class="phase-question">Does FactorGraphs recover plaintext-level accuracy under grouped SA?</div>
+      <div class="phase-body">
+        <p>Run FactorGraphs under the <strong>same grouped conditions</strong> that broke Krum in Phase 1.</p>
+        <ul>
+          <li>FactorGraphs (Grouped, k=10) &times; (No Attack + Label Flipping) &times; FEMNIST &times; &beta;=0</li>
+          <li>Fixed: nbyz=50</li>
+          <li>Compare against Phase 1 results (no new baseline runs needed)</li>
+        </ul>
+        <p><strong>Target:</strong> FactorGraphs accuracy should match the best Non-Grouped baseline (likely SignGuard at ~83.6%).</p>
+      </div>
+      <div class="outcome-box">
+        <div class="outcome-label">Outcome</div>
+        Fills the <strong>XX.X% placeholders</strong> in Table 1 (FactorGraphs row). Core proof that the method works.
+      </div>
+      <div class="phase-meta">
+        <div>Runs: <span class="meta-value">2</span></div>
+        <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 1</span></span></div>
+        <div>Fills: <span class="meta-value">Table 1 (FactorGraphs row)</span></div>
+      </div>
+
+      <!-- Decision Panel: Phase 2 -->
+      <div class="decision-panel" id="decision-panel-2">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 2</div>
+        <div class="decision-panel-description" id="p2-description">Does FactorGraphs recover plaintext-level accuracy under grouped secure aggregation?</div>
+        <div class="decision-btn-group">
+          <button class="decision-btn btn-yes" id="p2-btn-yes" onclick="setPhase2Decision(true)">Yes &mdash; FactorGraphs works</button>
+          <button class="decision-btn btn-no" id="p2-btn-no" onclick="setPhase2Decision(false)">No &mdash; needs tuning</button>
+        </div>
+        <div class="decision-warning" id="p2-warning">
+          FactorGraphs did not match baseline accuracy. Stop here and tune belief propagation parameters, observation function, or exclusion threshold before proceeding to Phase 3+.
+        </div>
+        <div id="p2-cmd-area" style="display:none;">
+          <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Record decision + run Phase 3</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p2-decide-cmd-text">python experiment_runner.py --decide 2</span>
+          </div>
+          <div id="p2-next-cmd-block">
+            <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">emran:</div>
+            <div class="cmd-block">
+              <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+              <span id="p2-next-cmd-text-emran">python experiment_runner.py --cloud_id emran --phase 3</span>
+            </div>
+            <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">moaz:</div>
+            <div class="cmd-block">
+              <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+              <span id="p2-next-cmd-text-moaz">python experiment_runner.py --cloud_id moaz --phase 3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M6 12l4 4 4-4"/></svg>
+    </div>
+
+    <!-- Phase 3 -->
+    <div class="phase-card">
+      <span class="phase-badge badge-solution">Phase 3</span>
+      <div class="phase-title">Backdoor Defense Trade-off</div>
+      <div class="phase-question">Can FactorGraphs suppress backdoors without destroying model utility?</div>
+      <div class="phase-body">
+        <p>Switch from Label Flipping to the <strong>Scaling Backdoor attack</strong> (&gamma;=200, target label 7). Measures both ACC and ASR simultaneously.</p>
+        <ul>
+          <li>Scaling Backdoor &times; FEMNIST &times; Grouped (k=10)</li>
+          <li>4 methods: FactorGraphs + FedAvg + Krum + SignGuard</li>
+          <li>Fixed: nbyz=50, &beta;=0</li>
+          <li>Reuse FedAvg/Krum grouped results from Phase 1 if applicable</li>
+        </ul>
+        <p><strong>Ideal result:</strong> FactorGraphs in the bottom-right quadrant (high ACC, low ASR). FedAvg fails on ASR, Krum fails on ACC.</p>
+      </div>
+      <div class="outcome-box">
+        <div class="outcome-label">Outcome</div>
+        Fills <strong>Fig. 2</strong> (ACC vs. ASR scatter plot). Completes the backdoor defense story.
+      </div>
+      <div class="phase-meta">
+        <div>Runs: <span class="meta-value">4</span></div>
+        <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 1</span></span></div>
+        <div>Fills: <span class="meta-value">Fig. 2</span></div>
+      </div>
+
+      <!-- Decision Panel: Phase 3 -->
+      <div class="decision-panel" id="decision-panel-3">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 3</div>
+        <div class="decision-panel-description" id="p3-description">Can FactorGraphs suppress the Scaling Backdoor without destroying model utility?</div>
+        <div class="decision-btn-group">
+          <button class="decision-btn btn-yes" id="p3-btn-yes" onclick="setPhase3Decision(true)">Yes &mdash; suppresses backdoor</button>
+          <button class="decision-btn btn-no" id="p3-btn-no" onclick="setPhase3Decision(false)">No &mdash; backdoor persists</button>
+        </div>
+        <div class="decision-warning" id="p3-warning">
+          FactorGraphs does not suppress the Scaling Backdoor effectively. The ACC vs ASR trade-off needs investigation before scaling to Phase 4.
+        </div>
+        <div id="p3-cmd-area" style="display:none;">
+          <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Record decision + run Phase 4</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p3-decide-cmd-text">python experiment_runner.py --decide 3</span>
+          </div>
+          <div id="p3-next-cmd-block">
+            <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">emran:</div>
+            <div class="cmd-block">
+              <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+              <span id="p3-next-cmd-text-emran">python experiment_runner.py --cloud_id emran --phase 4</span>
+            </div>
+            <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">moaz:</div>
+            <div class="cmd-block">
+              <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+              <span id="p3-next-cmd-text-moaz">python experiment_runner.py --cloud_id moaz --phase 4</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M6 12l4 4 4-4"/></svg>
+    </div>
+
+    <!-- Phase 4 -->
+    <div class="phase-card">
+      <span class="phase-badge badge-robust">Phase 4</span>
+      <div class="phase-title">Non-IID Robustness Sweep</div>
+      <div class="phase-question">How does FactorGraphs perform across the full spectrum of data heterogeneity?</div>
+      <div class="phase-body">
+        <p>Sweep all four non-IID levels: <strong>&beta; &isin; {0.25, 0.5, 0.75, 1.0}</strong>. This validates the CLT-based smoothing claim and maps the degradation curve.</p>
+        <ul>
+          <li>FactorGraphs + FedAvg + best surviving baseline from Phase 1</li>
+          <li>&times; 2 attacks (Label Flipping + Scaling Backdoor)</li>
+          <li>&times; 4 &beta; values &times; FEMNIST</li>
+          <li>Fixed: k=10, nbyz=50</li>
+          <li>= 3 methods &times; 2 attacks &times; 4 &beta; = <strong>24 runs</strong></li>
+        </ul>
+        <p><strong>Key claim:</strong> Distance-based methods (Krum) have high false positive rates under non-IID because benign specialist groups look like outliers. FactorGraphs' temporal tracking resolves this. The full &beta; sweep shows where the crossover happens.</p>
+      </div>
+      <div class="outcome-box">
+        <div class="outcome-label">Outcome</div>
+        Produces a <strong>&beta;-sweep line chart</strong> (ACC vs &beta;) and adds non-IID columns to all tables. Shows the degradation curve and where FactorGraphs' advantage is largest.
+      </div>
+      <div class="phase-meta">
+        <div>Runs: <span class="meta-value">24</span></div>
+        <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 2</span> <span class="dep-tag">Phase 3</span></span></div>
+        <div>Fills: <span class="meta-value">&beta;-sweep figure + non-IID columns</span></div>
+      </div>
+
+      <!-- Decision Panel: Phase 4 -->
+      <div class="decision-panel" id="decision-panel-4">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 4 (Computed)</div>
+        <div class="decision-panel-description" id="p4-description">Non-IID robustness sweep. The experiments below are computed from Phase 0 anchor and Phase 1 surviving baselines. No input needed &mdash; this is a full sweep.</div>
+        <div class="decision-computed" id="p4-computed-info">
+          <div id="p4-methods-list">Methods: <strong>FactorGraphs</strong> + <strong>FedAvg</strong> + <em>(surviving baselines from Phase 1)</em></div>
+          <div id="p4-anchor-info" style="margin-top: 4px;">Anchor: <em>(select in Phase 0)</em></div>
+          <div id="p4-run-count" style="margin-top: 4px;">Runs: <strong>methods x 2 attacks x 4 beta values</strong> = <strong id="p4-run-number">24</strong></div>
+        </div>
+        <div id="p4-cmd-area">
+          <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Run Phase 5</div>
+          <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">emran:</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p4-next-cmd-text-emran">python experiment_runner.py --cloud_id emran --phase 5</span>
+          </div>
+          <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">moaz:</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p4-next-cmd-text-moaz">python experiment_runner.py --cloud_id moaz --phase 5</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M6 12l4 4 4-4"/></svg>
+    </div>
+
+    <!-- Phase 5 -->
+    <div class="phase-card">
+      <span class="phase-badge badge-general">Phase 5</span>
+      <div class="phase-title">Generalization: Second Dataset</div>
+      <div class="phase-question">Do the results transfer to a different dataset?</div>
+      <div class="phase-body">
+        <p>Run <strong>only the winning configuration</strong> from Phases 1&ndash;4 on a second dataset. No full baseline sweep &mdash; just enough to confirm the pattern holds.</p>
+        <ul>
+          <li><strong>MNIST</strong> (fast, sanity check) &mdash; FactorGraphs + FedAvg + best baseline</li>
+          <li>Optionally <strong>CIFAR-10 + ResNet-18</strong> if reviewers demand it</li>
+          <li>Grouped (k=10), both attacks, &beta;=0 and one non-IID (&beta;=0.5)</li>
+          <li>Fixed: nbyz=50</li>
+        </ul>
+      </div>
+      <div class="outcome-box">
+        <div class="outcome-label">Outcome</div>
+        Adds a <strong>second dataset column</strong> in all tables. Strengthens generalization claims without a full sweep.
+      </div>
+      <div class="phase-meta">
+        <div>Runs: <span class="meta-value">6</span></div>
+        <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 4</span></span></div>
+        <div>Fills: <span class="meta-value">MNIST / CIFAR-10 columns</span></div>
+      </div>
+
+      <!-- Decision Panel: Phase 5 -->
+      <div class="decision-panel" id="decision-panel-5">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 5</div>
+        <div class="decision-panel-description" id="p5-description">Select the second dataset for generalization testing. This should be different from the Phase 0 anchor dataset.</div>
+        <div class="decision-radio-group" id="p5-radios">
+          <div class="decision-radio-item" id="p5-radio-MNIST" onclick="setPhase5Dataset('MNIST')">
+            <input type="radio" name="p5dataset" id="p5-r-MNIST" value="MNIST">
+            <label for="p5-r-MNIST">MNIST</label>
+          </div>
+          <div class="decision-radio-item" id="p5-radio-CIFAR10" onclick="setPhase5Dataset('CIFAR10')">
+            <input type="radio" name="p5dataset" id="p5-r-CIFAR10" value="CIFAR10">
+            <label for="p5-r-CIFAR10">CIFAR10</label>
+          </div>
+        </div>
+        <div id="p5-cmd-area" style="display:none;">
+          <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Record decision + run Phase 6</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p5-decide-cmd-text">python experiment_runner.py --decide 5</span>
+          </div>
+          <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">emran:</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p5-next-cmd-text-emran">python experiment_runner.py --cloud_id emran --phase 6</span>
+          </div>
+          <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">moaz:</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p5-next-cmd-text-moaz">python experiment_runner.py --cloud_id moaz --phase 6</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M6 12l4 4 4-4"/></svg>
+    </div>
+
+    <!-- Phase 6 -->
+    <div class="phase-card">
+      <span class="phase-badge badge-ablation">Phase 6</span>
+      <div class="phase-title">Sensitivity: Group Size &times; Byzantine Count</div>
+      <div class="phase-question">How sensitive is FactorGraphs to group size and number of attackers?</div>
+      <div class="phase-body">
+        <p>Sweep both group size and attacker count to produce a sensitivity heatmap. Preemptively answers a common reviewer question.</p>
+        <ul>
+          <li>Group sizes: <strong>k &isin; {10, 25, 50, 100}</strong></li>
+          <li>Byzantine clients: <strong>nbyz &isin; {25, 50, 75}</strong></li>
+          <li>FactorGraphs only &times; FEMNIST &times; Label Flipping &times; &beta;=0</li>
+          <li>= 4 &times; 3 = <strong>12 runs</strong></li>
+        </ul>
+        <p><strong>Expected trends:</strong> Smaller groups &rarr; faster detection (less dilution) but more groups needed. More attackers &rarr; harder detection but stronger aggregate signal. The heatmap reveals the operating envelope.</p>
+      </div>
+      <div class="outcome-box">
+        <div class="outcome-label">Outcome</div>
+        Produces a <strong>k &times; nbyz sensitivity heatmap</strong> showing accuracy across configurations. Identifies sweet spots and failure boundaries.
+      </div>
+      <div class="phase-meta">
+        <div>Runs: <span class="meta-value">12</span></div>
+        <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 2</span></span></div>
+        <div>Fills: <span class="meta-value">Sensitivity heatmap (new table/figure)</span></div>
+      </div>
+
+      <!-- Decision Panel: Phase 6 -->
+      <div class="decision-panel" id="decision-panel-6">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 6 (Read-Only)</div>
+        <div class="decision-panel-description" id="p6-description">Sensitivity grid: 4 group sizes x 3 Byzantine counts = 12 runs. Uses the anchor from Phase 0.</div>
+        <div class="decision-readonly">
+          <div class="ro-label">Sensitivity Grid (k x nbyz)</div>
+          <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 8px;" id="p6-anchor-note">Anchor dataset: <em>(select in Phase 0)</em></div>
+          <table style="width: 100%; max-width: 400px; border-collapse: collapse; font-family: var(--mono); font-size: 12px;">
+            <thead>
+              <tr>
+                <th style="padding: 6px 10px; text-align: left; color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;"></th>
+                <th style="padding: 6px 10px; text-align: center; color: var(--text-muted); font-size: 10px;">nbyz=25</th>
+                <th style="padding: 6px 10px; text-align: center; color: var(--text-muted); font-size: 10px;">nbyz=50</th>
+                <th style="padding: 6px 10px; text-align: center; color: var(--text-muted); font-size: 10px;">nbyz=75</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="padding:4px 10px; font-weight:600;">k=10</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td><td style="padding:4px 10px; text-align:center; background:var(--blue-dim); border:1px solid var(--blue); border-radius:3px;">anchor</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td></tr>
+              <tr><td style="padding:4px 10px; font-weight:600;">k=25</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td></tr>
+              <tr><td style="padding:4px 10px; font-weight:600;">k=50</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td></tr>
+              <tr><td style="padding:4px 10px; font-weight:600;">k=100</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td><td style="padding:4px 10px; text-align:center; background:var(--bg-elevated); border-radius:3px;">run</td><td style="padding:4px 10px; text-align:center; background:var(--amber-dim); border-radius:3px;">edge</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="p6-cmd-area">
+          <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Run Phase 7</div>
+          <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">emran:</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p6-next-cmd-text-emran">python experiment_runner.py --cloud_id emran --phase 7</span>
+          </div>
+          <div style="font-family: var(--mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">moaz:</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p6-next-cmd-text-moaz">python experiment_runner.py --cloud_id moaz --phase 7</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-connector">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 4v12M6 12l4 4 4-4"/></svg>
+    </div>
+
+    <!-- Phase 7 -->
+    <div class="phase-card">
+      <span class="phase-badge badge-arch">Phase 7</span>
+      <div class="phase-title">Architecture Comparison</div>
+      <div class="phase-question">Does the defense transfer across model architectures?</div>
+      <div class="phase-body">
+        <p>Test whether FactorGraphs' performance depends on the model architecture. Compare the anchor MobileNetV3 against <strong>EfficientNet</strong> and optionally <strong>ResNet-18</strong>.</p>
+        <ul>
+          <li>FactorGraphs + FedAvg &times; 2 new architectures (EfficientNet, ResNet-18)</li>
+          <li>&times; Label Flipping &times; FEMNIST &times; Grouped (k=10)</li>
+          <li>Fixed: nbyz=50, &beta;=0</li>
+          <li>= 2 methods &times; 2 archs = <strong>4 runs</strong></li>
+        </ul>
+        <p><strong>Why this matters:</strong> If FactorGraphs works regardless of architecture, it strengthens the "protocol-agnostic" claim &mdash; the defense is truly decoupled from the model.</p>
+      </div>
+      <div class="outcome-box">
+        <div class="outcome-label">Outcome</div>
+        Adds an <strong>architecture comparison table</strong> (MobileNetV3 vs EfficientNet vs ResNet-18). Confirms model-agnostic behavior.
+      </div>
+      <div class="phase-meta">
+        <div>Runs: <span class="meta-value">4</span></div>
+        <div>Dependencies: <span class="meta-value"><span class="dep-tag">Phase 2</span></span></div>
+        <div>Fills: <span class="meta-value">Architecture comparison table (new)</span></div>
+      </div>
+
+      <!-- Decision Panel: Phase 7 -->
+      <div class="decision-panel" id="decision-panel-7">
+        <div class="decision-panel-title">Decision Panel &mdash; Phase 7 (Read-Only)</div>
+        <div class="decision-panel-description" id="p7-description">Architecture comparison: tests all architectures except the Phase 0 anchor architecture.</div>
+        <div class="decision-readonly">
+          <div class="ro-label">Architectures to test</div>
+          <div class="ro-grid" id="p7-arch-grid">
+            <div class="ro-grid-item" id="p7-arch-mobilenet_v3_small">mobilenet_v3_small</div>
+            <div class="ro-grid-item" id="p7-arch-resnet18">resnet18</div>
+            <div class="ro-grid-item" id="p7-arch-eff_net">eff_net</div>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;" id="p7-anchor-arch-note">Anchor arch: <em>(select in Phase 0)</em> &mdash; will be excluded from this phase.</div>
+        </div>
+        <div class="decision-complete" id="p7-completion" style="display:none;">
+          All 8 phases planned. Run the full pipeline to produce all paper artifacts.
+        </div>
+        <div id="p7-cmd-area">
+          <div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Completion</div>
+          <div class="cmd-block">
+            <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+            <span id="p7-final-cmd-text">python experiment_runner.py --status</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SENSITIVITY GRID PREVIEW ============ -->
+  <div class="section" id="sensitivity">
+    <div class="section-title">Sensitivity Grid Preview</div>
+    <div class="section-subtitle">Phase 6 will produce a heatmap across these 12 configurations (k &times; nbyz)</div>
+
+    <div class="card">
+      <table class="data-table" style="max-width: 600px;">
+        <thead>
+          <tr>
+            <th></th>
+            <th style="text-align:center">nbyz = 25<br><span style="font-weight:400; text-transform:none;">(5%)</span></th>
+            <th style="text-align:center">nbyz = 50<br><span style="font-weight:400; text-transform:none;">(10%)</span></th>
+            <th style="text-align:center">nbyz = 75<br><span style="font-weight:400; text-transform:none;">(15%)</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>k = 10</strong></td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+            <td class="num" style="text-align:center; background: var(--blue-dim); border: 2px solid var(--blue);">anchor</td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+          </tr>
+          <tr>
+            <td><strong>k = 25</strong></td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+          </tr>
+          <tr>
+            <td><strong>k = 50</strong></td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+          </tr>
+          <tr>
+            <td><strong>k = 100</strong></td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+            <td class="num" style="text-align:center; background: var(--accent-dim);">run</td>
+            <td class="num" style="text-align:center; background: var(--amber-dim);">edge case</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size: 12px; color: var(--text-muted); margin-top: 12px; font-family: var(--mono);">
+        <span style="display:inline-block; width:10px; height:10px; background:var(--blue-dim); border:2px solid var(--blue); border-radius:2px; vertical-align:middle; margin-right:4px;"></span> anchor = default config from Phases 1&ndash;3 &nbsp;&nbsp;
+        <span style="display:inline-block; width:10px; height:10px; background:var(--amber-dim); border-radius:2px; vertical-align:middle; margin-right:4px;"></span> edge case = k=30 with 30 attackers means ~1 attacker per group on average
+      </p>
+    </div>
+
+    <div class="card" style="margin-top: 16px;">
+      <div style="font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 12px;">&beta;-sweep Preview (Phase 4)</div>
+      <div style="display: flex; align-items: flex-end; gap: 2px; height: 120px; padding-bottom: 24px; position: relative;">
+        <!-- axis labels -->
+        <div style="position: absolute; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-around; font-family: var(--mono); font-size: 11px; color: var(--text-muted);">
+          <span>&beta;=0</span><span>0.25</span><span>0.50</span><span>0.75</span><span>1.0</span>
+        </div>
+        <!-- bars representing expected difficulty curve -->
+        <div style="flex:1; display:flex; align-items:flex-end; justify-content:center;">
+          <div style="width:60%; height:95%; background:var(--accent); border-radius:4px 4px 0 0; opacity:0.8;"></div>
+        </div>
+        <div style="flex:1; display:flex; align-items:flex-end; justify-content:center;">
+          <div style="width:60%; height:85%; background:var(--accent); border-radius:4px 4px 0 0; opacity:0.7;"></div>
+        </div>
+        <div style="flex:1; display:flex; align-items:flex-end; justify-content:center;">
+          <div style="width:60%; height:70%; background:var(--amber); border-radius:4px 4px 0 0; opacity:0.7;"></div>
+        </div>
+        <div style="flex:1; display:flex; align-items:flex-end; justify-content:center;">
+          <div style="width:60%; height:50%; background:var(--amber); border-radius:4px 4px 0 0; opacity:0.8;"></div>
+        </div>
+        <div style="flex:1; display:flex; align-items:flex-end; justify-content:center;">
+          <div style="width:60%; height:35%; background:var(--red); border-radius:4px 4px 0 0; opacity:0.7;"></div>
+        </div>
+      </div>
+      <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
+        Expected pattern: accuracy degrades as &beta; increases (more non-IID). The question is <em>where</em> FactorGraphs separates from baselines.
+      </p>
+    </div>
+  </div>
+
+  <!-- ============ RUN BUDGET ============ -->
+  <div class="section" id="budget">
+    <div class="section-title">Run Budget</div>
+    <div class="section-subtitle">Cumulative experiment count by phase</div>
+
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Phase</th>
+            <th>Question</th>
+            <th style="text-align:center">Runs</th>
+            <th style="text-align:center">Cumul.</th>
+            <th>Paper Artifact</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="num pos">0</span></td>
+            <td>Baseline landscape (dataset &times; architecture)</td>
+            <td class="num" style="text-align:center">18</td>
+            <td class="num" style="text-align:center">18</td>
+            <td>Baseline landscape table</td>
+          </tr>
+          <tr>
+            <td><span class="num neg">1</span></td>
+            <td>Grouping failure (the problem)</td>
+            <td class="num" style="text-align:center">16</td>
+            <td class="num" style="text-align:center">34</td>
+            <td>Table 1 + Fig. 1</td>
+          </tr>
+          <tr>
+            <td><span class="num blue-text">2</span></td>
+            <td>Inference recovery (the solution)</td>
+            <td class="num" style="text-align:center">2</td>
+            <td class="num" style="text-align:center">36</td>
+            <td>Table 1 (FactorGraphs row)</td>
+          </tr>
+          <tr>
+            <td><span class="num blue-text">3</span></td>
+            <td>Backdoor defense trade-off</td>
+            <td class="num" style="text-align:center">4</td>
+            <td class="num" style="text-align:center">40</td>
+            <td>Fig. 2 (ACC vs ASR)</td>
+          </tr>
+          <tr>
+            <td><span class="num purple-text">4</span></td>
+            <td>Non-IID robustness sweep (&beta; = 0.25&ndash;1.0)</td>
+            <td class="num" style="text-align:center">24</td>
+            <td class="num" style="text-align:center">64</td>
+            <td>&beta;-sweep figure + non-IID cols</td>
+          </tr>
+          <tr>
+            <td><span class="num amber-text">5</span></td>
+            <td>Generalization (2nd dataset)</td>
+            <td class="num" style="text-align:center">6</td>
+            <td class="num" style="text-align:center">70</td>
+            <td>MNIST / CIFAR-10 columns</td>
+          </tr>
+          <tr>
+            <td><span class="num">6</span></td>
+            <td>Sensitivity: k &times; nbyz grid</td>
+            <td class="num" style="text-align:center">12</td>
+            <td class="num" style="text-align:center">82</td>
+            <td>Sensitivity heatmap</td>
+          </tr>
+          <tr>
+            <td><span class="num teal-text">7</span></td>
+            <td>Architecture comparison</td>
+            <td class="num" style="text-align:center">4</td>
+            <td class="num" style="text-align:center">86</td>
+            <td>Architecture table</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Budget bar chart -->
+    <div class="card" style="margin-top: 16px;">
+      <div style="font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 16px;">Runs per Phase (max = 24)</div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 0</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 75%; background: var(--accent);"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">18</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 1</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 66.7%; background: var(--red);"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">16</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 2</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 8.3%; background: var(--blue);"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">2</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 3</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 16.7%; background: var(--blue);"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">4</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 4</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 100%; background: var(--purple);"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">24</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 5</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 25%; background: var(--amber);"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">6</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 6</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 50%; background: #5A5E6E;"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">12</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Phase 7</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 16.7%; background: var(--teal);"></div></div>
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 40px;">4</div>
+      </div>
+    </div>
+
+    <!-- Savings callout -->
+    <div class="card" style="margin-top: 16px; display: flex; align-items: center; gap: 24px;">
+      <div style="text-align: center; min-width: 160px;">
+        <div style="font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 4px;">Reduction</div>
+        <div style="font-family: var(--mono); font-size: 32px; font-weight: 700; color: var(--accent);">98.7%</div>
+        <div style="font-size: 12px; color: var(--text-muted);">fewer experiments</div>
+      </div>
+      <div style="flex: 1; font-size: 14px; color: var(--text-dim); line-height: 1.65; border-left: 1px solid var(--border); padding-left: 24px;">
+        <strong style="color: var(--text);">~86 runs</strong> instead of 6,750. Phase 0 invests 18 runs upfront to data-drive the anchor dataset and architecture &mdash; this cost pays for itself by eliminating bad combos from all subsequent phases.
+        Phase 4 (&beta;-sweep) is the largest at 24 runs &mdash; this is intentional, as non-IID robustness is a core differentiator.
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DEPENDENCY FLOW ============ -->
+  <div class="section" id="flow">
+    <div class="section-title">Dependency Flow</div>
+    <div class="section-subtitle">How early decisions narrow later experiments</div>
+
+    <div class="card">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <!-- Left: flow diagram as styled list -->
+        <div>
+          <div style="font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 16px;">Decision Chain</div>
+
+          <div style="padding-left: 20px; border-left: 2px solid var(--accent); margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--accent);">Phase 0 decides:</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Anchor dataset (data-driven, not assumed)<br>Best architecture for that dataset<br>Eliminates bad dataset-arch combos<br>Defaults for later phases: k=10, nbyz=50, &beta;=0</div>
+          </div>
+
+          <div style="padding-left: 20px; border-left: 2px solid var(--red); margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--red);">Phase 1 decides:</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Which baselines survive grouping<br>Drop broken baselines from Phases 4+</div>
+          </div>
+
+          <div style="padding-left: 20px; border-left: 2px solid var(--blue); margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--blue);">Phases 2&ndash;3 decide:</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Whether FactorGraphs works at all<br>If not &rarr; revisit method before scaling</div>
+          </div>
+
+          <div style="padding-left: 20px; border-left: 2px solid var(--purple); margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--purple);">Phase 4 decides:</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Where the non-IID crossover is<br>Which &beta; values to feature in tables<br>Whether extreme non-IID (&beta;=1.0) is worth showing</div>
+          </div>
+
+          <div style="padding-left: 20px; border-left: 2px solid var(--amber); margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--amber);">Phase 5 decides:</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Scope of generalization claims<br>Whether CIFAR-10 is needed</div>
+          </div>
+
+          <div style="padding-left: 20px; border-left: 2px solid #5A5E6E; margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 600; color: #5A5E6E;">Phase 6 decides:</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Operating envelope of FactorGraphs<br>Failure boundaries (k too large? nbyz too high?)</div>
+          </div>
+
+          <div style="padding-left: 20px; border-left: 2px solid var(--teal);">
+            <div style="font-size: 13px; font-weight: 600; color: var(--teal);">Phase 7 decides:</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Strength of "architecture-agnostic" claim<br>Whether EfficientNet results differ from MobileNetV3</div>
+          </div>
+        </div>
+
+        <!-- Right: pivot points -->
+        <div>
+          <div style="font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 16px;">Pivot Points</div>
+
+          <div style="background: var(--accent-dim); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 12px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--accent);">If multiple combos tie in Phase 0</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Break ties by practical criteria: training speed, memory footprint, relevance to the target venue (IEEE Trans. Power Systems). Prefer the harder dataset to preempt reviewer pushback.</div>
+          </div>
+
+          <div style="background: var(--red-dim); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 12px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--red);">If Krum doesn't collapse</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">The "visibility gap" framing weakens. Try smaller group sizes (k=10) or different nbyz before adjusting narrative.</div>
+          </div>
+
+          <div style="background: var(--blue-dim); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 12px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--blue);">If FactorGraphs underperforms</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Stop at Phase 2. Tune belief propagation parameters, observation function, or exclusion threshold before running more.</div>
+          </div>
+
+          <div style="background: var(--purple-dim); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 12px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--purple);">If &beta;=1.0 breaks everything</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Expected &mdash; fully non-IID is adversarial to all methods. Report it as an honest limitation rather than omitting it. Show FactorGraphs degrades gracefully.</div>
+          </div>
+
+          <div style="background: var(--amber-dim); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 12px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--amber);">If MNIST results are trivial &mdash; CONFIRMED</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">All MNIST combos hit ~98% in just 500 rounds with &Delta;&nbsp;&lt;&nbsp;1.2pp even at 10% Byzantine. Use CIFAR-10&nbsp;+&nbsp;ResNet-18 as anchor (68.67%, &Delta;&nbsp;16.98pp).</div>
+          </div>
+
+          <div style="background: var(--teal-dim); border-radius: var(--radius-sm); padding: 14px 16px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--teal);">If EfficientNet diverges from MobileNetV3</div>
+            <div style="font-size: 13px; color: var(--text-dim); margin-top: 4px;">Investigate whether the anomaly scoring function (SignGuard) is architecture-sensitive. May need to tune &mu;<sub>mal</sub>/&mu;<sub>ben</sub> per architecture.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PAPER MAPPING ============ -->
+  <div class="section" id="mapping">
+    <div class="section-title">Paper Mapping</div>
+    <div class="section-subtitle">Which experiments fill which placeholders in the manuscript</div>
+
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Paper Artifact</th>
+            <th>Current State</th>
+            <th>Filled By</th>
+            <th>Key Data Needed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Baseline Landscape</strong> &mdash; Dataset &times; Arch (NEW)</td>
+            <td><span class="num pos">18/18 complete</span></td>
+            <td><span class="dep-tag" style="background: var(--accent-dim); color: var(--accent);">P0</span></td>
+            <td>Clean ACC + attack &Delta; for 9 dataset-arch combos</td>
+          </tr>
+          <tr>
+            <td><strong>Table 1</strong> &mdash; Grouping Impact &Delta;</td>
+            <td><span class="num pos">16/16 done</span></td>
+            <td><span class="dep-tag" style="background: var(--red-dim); color: var(--red);">P1</span> <span class="dep-tag" style="background: var(--blue-dim); color: var(--blue);">P2</span></td>
+            <td>ACC for all methods &times; Grouped/Non-Grouped</td>
+          </tr>
+          <tr>
+            <td><strong>Fig. 1</strong> &mdash; Grouping Impact Curves</td>
+            <td><span class="num pos">Has image.png</span></td>
+            <td><span class="dep-tag" style="background: var(--red-dim); color: var(--red);">P1</span></td>
+            <td>Training curves for all baselines</td>
+          </tr>
+          <tr>
+            <td><strong>Fig. 2</strong> &mdash; ACC vs ASR Scatter</td>
+            <td><span class="num neg">XX% placeholders</span></td>
+            <td><span class="dep-tag" style="background: var(--blue-dim); color: var(--blue);">P3</span></td>
+            <td>ACC + ASR for all methods under Scaling Backdoor</td>
+          </tr>
+          <tr>
+            <td><strong>&beta;-sweep figure</strong> &mdash; ACC vs &beta; (NEW)</td>
+            <td><span class="num neg">Not yet present</span></td>
+            <td><span class="dep-tag" style="background: var(--purple-dim); color: var(--purple);">P4</span></td>
+            <td>ACC across &beta; &isin; {0, 0.25, 0.5, 0.75, 1.0} for 3 methods &times; 2 attacks</td>
+          </tr>
+          <tr>
+            <td><strong>Non-IID columns</strong></td>
+            <td><span class="num neg">Not yet present</span></td>
+            <td><span class="dep-tag" style="background: var(--purple-dim); color: var(--purple);">P4</span></td>
+            <td>Repeat key results with selected &beta; values</td>
+          </tr>
+          <tr>
+            <td><strong>2nd Dataset columns</strong></td>
+            <td><span class="num neg">Not yet present</span></td>
+            <td><span class="dep-tag" style="background: var(--amber-dim); color: var(--amber);">P5</span></td>
+            <td>FactorGraphs + FedAvg + best baseline on MNIST</td>
+          </tr>
+          <tr>
+            <td><strong>Sensitivity heatmap</strong> &mdash; k &times; nbyz (NEW)</td>
+            <td><span class="num neg">Not yet present</span></td>
+            <td><span class="dep-tag">P6</span></td>
+            <td>ACC for k &isin; {10,25,50,100} &times; nbyz &isin; {25,50,75}</td>
+          </tr>
+          <tr>
+            <td><strong>Architecture table</strong> (NEW)</td>
+            <td><span class="num neg">Not yet present</span></td>
+            <td><span class="dep-tag" style="background: var(--teal-dim); color: var(--teal);">P7</span></td>
+            <td>MobileNetV3 vs EfficientNet vs ResNet-18</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ STICKY COMMAND BAR ============ -->
+  <div class="sticky-command-bar" id="sticky-command-bar">
+    <div class="scb-section" style="max-width: 200px;">
+      <div class="scb-label">Phase Status</div>
+      <div class="scb-phases" id="scb-phase-dots">
+        <div class="scb-phase-dot decided" id="scb-dot-0" title="Phase 0 — Complete">0</div>
+        <div class="scb-phase-dot current" id="scb-dot-1" title="Phase 1">1</div>
+        <div class="scb-phase-dot" id="scb-dot-2" title="Phase 2">2</div>
+        <div class="scb-phase-dot" id="scb-dot-3" title="Phase 3">3</div>
+        <div class="scb-phase-dot" id="scb-dot-4" title="Phase 4">4</div>
+        <div class="scb-phase-dot" id="scb-dot-5" title="Phase 5">5</div>
+        <div class="scb-phase-dot" id="scb-dot-6" title="Phase 6">6</div>
+        <div class="scb-phase-dot" id="scb-dot-7" title="Phase 7">7</div>
+      </div>
+    </div>
+    <div class="scb-section">
+      <div class="scb-label">Next Command</div>
+      <div class="scb-next-cmd" id="scb-next-cmd">
+        <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+        <span id="scb-next-cmd-text">python experiment_runner.py --decide 0  # then --phase 1</span>
+      </div>
+    </div>
+    <div class="scb-section">
+      <div class="scb-label">phase_config.json</div>
+      <div class="scb-config-snippet" id="scb-config-snippet">
+        <button class="cmd-copy-btn" onclick="copyCmd(this)">Copy</button>
+        <span id="scb-config-text">{
+  "decisions": {}
+}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FOOTER ============ -->
+  <div style="text-align: center; padding: 32px 0 16px; font-size: 12px; color: var(--text-muted); font-family: var(--mono);">
+    FactorGraphs Experiment Plan &middot; ~86 runs vs 6,750 full sweep &middot; 8 phases &middot; 98.7% reduction
+  </div>
+
+  <!-- ============ INTERACTIVE SCRIPT ============ -->
+  <script>
+  (function() {
+    'use strict';
+
+    // =============================================================
+    // STATE
+    // =============================================================
+    var state = {
+      phase0: { dataset: null, arch: null, decided: false },
+      phase1: { baselines: { krum: false, shieldfl: false, signguard: false }, decided: false },
+      phase2: { works: null, decided: false },
+      phase3: { works: null, decided: false },
+      phase4: { decided: false },
+      phase5: { dataset: null, decided: false },
+      phase6: { decided: false },
+      phase7: { decided: false }
+    };
+
+    // Display name mapping
+    var datasetDisplayNames = {
+      'MNIST': 'MNIST',
+      'FEMNIST': 'FEMNIST',
+      'CIFAR10': 'CIFAR10'
+    };
+    var archDisplayNames = {
+      'mobilenet_v3_small': 'MobileNetV3',
+      'resnet18': 'ResNet-18',
+      'eff_net': 'EfficientNet'
+    };
+    var archCodeNames = {
+      'MobileNetV3': 'mobilenet_v3_small',
+      'ResNet-18': 'resnet18',
+      'EfficientNet': 'eff_net'
+    };
+    var datasetCodeNames = {
+      'MNIST': 'MNIST',
+      'FEMNIST': 'FEMNIST',
+      'CIFAR-10': 'CIFAR10'
+    };
+
+    // Column headers and row labels from the grid
+    var gridArchHeaders = ['MobileNetV3', 'ResNet-18', 'EfficientNet'];
+    var gridDatasetRows = ['MNIST', 'FEMNIST', 'CIFAR-10'];
+
+    // =============================================================
+    // MAKE PHASE 0 GRID CELLS CLICKABLE
+    // =============================================================
+    function initPhase0Grid() {
+      // Find the run matrix grid: it has style "grid-template-columns: 100px repeat(3, 1fr)"
+      var grids = document.querySelectorAll('[style*="grid-template-columns: 100px repeat(3, 1fr)"]');
+      if (grids.length === 0) return;
+      var grid = grids[0];
+      var children = grid.children;
+      // Layout: 4 columns (label + 3 data). Row 0 = header, Rows 1-3 = data rows
+      // children[0] = empty, children[1-3] = headers
+      // children[4] = MNIST label, children[5-7] = data cells
+      // children[8] = FEMNIST label, children[9-11] = data cells
+      // children[12] = CIFAR-10 label, children[13-15] = data cells
+      for (var row = 0; row < 3; row++) {
+        for (var col = 0; col < 3; col++) {
+          var cellIndex = (row + 1) * 4 + (col + 1);
+          var cell = children[cellIndex];
+          cell.classList.add('grid-cell-clickable');
+          cell.dataset.row = row;
+          cell.dataset.col = col;
+          cell.addEventListener('click', function() {
+            var r = parseInt(this.dataset.row);
+            var c = parseInt(this.dataset.col);
+            selectPhase0Cell(r, c);
+          });
+        }
+      }
+    }
+
+    function selectPhase0Cell(row, col) {
+      var datasetLabel = gridDatasetRows[row];
+      var archLabel = gridArchHeaders[col];
+      var datasetCode = datasetCodeNames[datasetLabel] || datasetLabel;
+      var archCode = archCodeNames[archLabel] || archLabel;
+
+      state.phase0.dataset = datasetCode;
+      state.phase0.arch = archCode;
+      state.phase0.decided = true;
+
+      // Update grid visual
+      var grids = document.querySelectorAll('[style*="grid-template-columns: 100px repeat(3, 1fr)"]');
+      if (grids.length === 0) return;
+      var grid = grids[0];
+      var children = grid.children;
+      for (var r = 0; r < 3; r++) {
+        for (var c = 0; c < 3; c++) {
+          var idx = (r + 1) * 4 + (c + 1);
+          children[idx].classList.remove('selected');
+        }
+      }
+      var selectedIdx = (row + 1) * 4 + (col + 1);
+      children[selectedIdx].classList.add('selected');
+
+      // Update selection display
+      var selEl = document.getElementById('p0-selection');
+      var selText = document.getElementById('p0-selection-text');
+      selEl.classList.remove('empty');
+      selText.textContent = 'Selected: ' + datasetCode + ' + ' + archCode;
+
+      // Show commands
+      var cmdArea = document.getElementById('p0-cmd-area');
+      cmdArea.style.display = 'block';
+      document.getElementById('p0-decide-cmd-text').textContent =
+        'python experiment_runner.py --decide 0';
+      document.getElementById('p0-next-cmd-text-emran').textContent =
+        'python experiment_runner.py --cloud_id emran --phase 1';
+      document.getElementById('p0-next-cmd-text-moaz').textContent =
+        'python experiment_runner.py --cloud_id moaz --phase 1';
+
+      cascadeUpdates();
+    }
+
+    // =============================================================
+    // PHASE 1: BASELINE CHECKBOXES
+    // =============================================================
+    window.toggleBaseline = function(name) {
+      var checkbox = document.getElementById('p1-check-' + name);
+      checkbox.checked = !checkbox.checked;
+      state.phase1.baselines[name] = checkbox.checked;
+      state.phase1.decided = true;
+
+      var item = document.getElementById('p1-cb-' + name);
+      var status = document.getElementById('p1-status-' + name);
+      if (checkbox.checked) {
+        item.classList.remove('collapsed');
+        item.classList.add('checked');
+        status.className = 'cb-status survived';
+        status.textContent = 'survived';
+      } else {
+        item.classList.remove('checked');
+        item.classList.add('collapsed');
+        status.className = 'cb-status collapsed-tag';
+        status.textContent = 'collapsed';
+      }
+
+      updatePhase1CarryForward();
+      cascadeUpdates();
+    };
+
+    function updatePhase1CarryForward() {
+      var survivors = [];
+      if (state.phase1.baselines.krum) survivors.push('Krum');
+      if (state.phase1.baselines.shieldfl) survivors.push('ShieldFL');
+      if (state.phase1.baselines.signguard) survivors.push('SignGuard');
+
+      var el = document.getElementById('p1-carry-forward');
+      var text = 'Carry forward to Phase 4+: <strong>FedAvg</strong> (always) + <strong>FactorGraphs</strong> (always)';
+      if (survivors.length > 0) {
+        text += ' + <strong>' + survivors.join('</strong> + <strong>') + '</strong>.';
+        text += ' Total methods: ' + (2 + survivors.length);
+      } else {
+        text += '. No baselines surviving — comparisons will be FactorGraphs vs FedAvg only.';
+      }
+      el.innerHTML = text;
+    }
+
+    // =============================================================
+    // PHASE 2: YES/NO BUTTONS
+    // =============================================================
+    window.setPhase2Decision = function(works) {
+      state.phase2.works = works;
+      state.phase2.decided = true;
+
+      var btnYes = document.getElementById('p2-btn-yes');
+      var btnNo = document.getElementById('p2-btn-no');
+      var warning = document.getElementById('p2-warning');
+      var cmdArea = document.getElementById('p2-cmd-area');
+
+      btnYes.classList.remove('active');
+      btnNo.classList.remove('active');
+
+      if (works) {
+        btnYes.classList.add('active');
+        warning.classList.remove('visible');
+        cmdArea.style.display = 'block';
+      } else {
+        btnNo.classList.add('active');
+        warning.classList.add('visible');
+        cmdArea.style.display = 'block';
+        document.getElementById('p2-next-cmd-block').style.display = 'none';
+      }
+      if (works) {
+        document.getElementById('p2-next-cmd-block').style.display = 'block';
+      }
+
+      cascadeUpdates();
+    };
+
+    // =============================================================
+    // PHASE 3: YES/NO BUTTONS
+    // =============================================================
+    window.setPhase3Decision = function(works) {
+      state.phase3.works = works;
+      state.phase3.decided = true;
+
+      var btnYes = document.getElementById('p3-btn-yes');
+      var btnNo = document.getElementById('p3-btn-no');
+      var warning = document.getElementById('p3-warning');
+      var cmdArea = document.getElementById('p3-cmd-area');
+
+      btnYes.classList.remove('active');
+      btnNo.classList.remove('active');
+
+      if (works) {
+        btnYes.classList.add('active');
+        warning.classList.remove('visible');
+        cmdArea.style.display = 'block';
+      } else {
+        btnNo.classList.add('active');
+        warning.classList.add('visible');
+        cmdArea.style.display = 'block';
+        document.getElementById('p3-next-cmd-block').style.display = 'none';
+      }
+      if (works) {
+        document.getElementById('p3-next-cmd-block').style.display = 'block';
+      }
+
+      cascadeUpdates();
+    };
+
+    // =============================================================
+    // PHASE 5: RADIO BUTTONS
+    // =============================================================
+    window.setPhase5Dataset = function(dataset) {
+      state.phase5.dataset = dataset;
+      state.phase5.decided = true;
+
+      // Update radio visual
+      var items = document.querySelectorAll('#p5-radios .decision-radio-item');
+      items.forEach(function(item) { item.classList.remove('selected'); });
+      document.getElementById('p5-radio-' + dataset).classList.add('selected');
+      document.getElementById('p5-r-' + dataset).checked = true;
+
+      // Show commands
+      document.getElementById('p5-cmd-area').style.display = 'block';
+
+      cascadeUpdates();
+    };
+
+    // =============================================================
+    // CASCADE UPDATES
+    // =============================================================
+    function cascadeUpdates() {
+      var ds = state.phase0.dataset;
+      var arch = state.phase0.arch;
+      var dsDisplay = ds ? (archDisplayNames[ds] || ds) : null;
+      var archDisplay = arch ? (archDisplayNames[arch] || arch) : null;
+      var anchorStr = ds && arch ? (ds + ' + ' + archDisplay) : null;
+
+      // -- Update Phase 1 description with anchor --
+      if (anchorStr) {
+        document.getElementById('p1-description').innerHTML =
+          'Check baselines that <strong>survived</strong> grouping on <strong>' + anchorStr +
+          '</strong> (unchecked = collapsed). Collapsed baselines will be dropped from Phase 4+ comparisons.';
+      }
+
+      // -- Update Phase 2 description --
+      if (anchorStr) {
+        document.getElementById('p2-description').textContent =
+          'Does FactorGraphs recover plaintext-level accuracy on ' + anchorStr + ' under grouped secure aggregation?';
+      }
+
+      // -- Update Phase 3 description --
+      if (anchorStr) {
+        document.getElementById('p3-description').textContent =
+          'Can FactorGraphs suppress the Scaling Backdoor on ' + anchorStr + ' without destroying model utility?';
+      }
+
+      // -- Update Phase 4 computed info --
+      var survivors = [];
+      if (state.phase1.baselines.krum) survivors.push('Krum');
+      if (state.phase1.baselines.shieldfl) survivors.push('ShieldFL');
+      if (state.phase1.baselines.signguard) survivors.push('SignGuard');
+      var methodCount = 2 + survivors.length; // FactorGraphs + FedAvg + survivors
+      var runCount = methodCount * 2 * 4; // methods x 2 attacks x 4 beta
+
+      var methodsHtml = 'Methods: <strong>FactorGraphs</strong> + <strong>FedAvg</strong>';
+      if (survivors.length > 0) {
+        methodsHtml += ' + <strong>' + survivors.join('</strong> + <strong>') + '</strong>';
+      }
+      document.getElementById('p4-methods-list').innerHTML = methodsHtml;
+
+      if (anchorStr) {
+        document.getElementById('p4-anchor-info').innerHTML = 'Anchor: <strong>' + anchorStr + '</strong>';
+        document.getElementById('p4-description').textContent =
+          'Non-IID robustness sweep on ' + anchorStr + '. The experiments below are computed from Phase 0 anchor and Phase 1 surviving baselines.';
+      }
+      document.getElementById('p4-run-number').textContent = runCount;
+      document.getElementById('p4-run-count').innerHTML =
+        'Runs: <strong>' + methodCount + ' methods x 2 attacks x 4 beta</strong> = <strong>' + runCount + '</strong>';
+
+      // -- Update Phase 5 description --
+      if (ds) {
+        var otherDatasets = ['MNIST', 'FEMNIST', 'CIFAR10'].filter(function(d) { return d !== ds; });
+        document.getElementById('p5-description').textContent =
+          'Select the second dataset for generalization testing (anchor is ' + ds + '). Choose from: ' + otherDatasets.join(', ') + '.';
+      }
+
+      // -- Update Phase 6 description --
+      if (anchorStr) {
+        document.getElementById('p6-description').textContent =
+          'Sensitivity grid on ' + anchorStr + ': 4 group sizes x 3 Byzantine counts = 12 runs.';
+        document.getElementById('p6-anchor-note').innerHTML =
+          'Anchor dataset: <strong>' + anchorStr + '</strong>';
+      }
+
+      // -- Update Phase 7 description --
+      if (arch) {
+        var allArchs = ['mobilenet_v3_small', 'resnet18', 'eff_net'];
+        var testArchs = allArchs.filter(function(a) { return a !== arch; });
+        document.getElementById('p7-description').textContent =
+          'Architecture comparison: tests ' + testArchs.map(function(a) { return archDisplayNames[a] || a; }).join(' and ') +
+          ' (excluding anchor ' + (archDisplayNames[arch] || arch) + ').';
+        document.getElementById('p7-anchor-arch-note').innerHTML =
+          'Anchor arch: <strong>' + (archDisplayNames[arch] || arch) + '</strong> — will be excluded from this phase.';
+
+        // Visually mark anchor arch as excluded
+        allArchs.forEach(function(a) {
+          var el = document.getElementById('p7-arch-' + a);
+          if (el) {
+            if (a === arch) {
+              el.style.opacity = '0.35';
+              el.style.textDecoration = 'line-through';
+            } else {
+              el.style.opacity = '1';
+              el.style.textDecoration = 'none';
+            }
+          }
+        });
+      }
+
+      // -- Show Phase 7 completion if all early phases are decided --
+      if (state.phase0.decided && state.phase1.decided && state.phase2.decided && state.phase3.decided) {
+        document.getElementById('p7-completion').style.display = 'block';
+      } else {
+        document.getElementById('p7-completion').style.display = 'none';
+      }
+
+      // -- Update sticky bar --
+      updateStickyBar();
+    }
+
+    // =============================================================
+    // STICKY BAR
+    // =============================================================
+    function updateStickyBar() {
+      // Phase dots
+      var phaseStates = [
+        state.phase0.decided,
+        state.phase1.decided,
+        state.phase2.decided,
+        state.phase3.decided,
+        state.phase4.decided || (state.phase2.decided && state.phase3.decided), // auto-decided
+        state.phase5.decided,
+        state.phase6.decided || state.phase2.decided, // auto from P2
+        state.phase7.decided || state.phase2.decided  // auto from P2
+      ];
+
+      // Find first undecided
+      var nextPhase = -1;
+      for (var i = 0; i < 8; i++) {
+        var dot = document.getElementById('scb-dot-' + i);
+        dot.classList.remove('decided', 'current');
+        if (phaseStates[i]) {
+          dot.classList.add('decided');
+        } else if (nextPhase === -1) {
+          nextPhase = i;
+          dot.classList.add('current');
+        }
+      }
+
+      // Next command
+      var nextCmdEl = document.getElementById('scb-next-cmd-text');
+      if (nextPhase === -1) {
+        nextCmdEl.textContent = 'python experiment_runner.py --status  # All phases planned!';
+      } else if (nextPhase === 0) {
+        nextCmdEl.textContent = 'python experiment_runner.py --phase 0';
+      } else {
+        // If previous phase is decided, show next phase run command
+        nextCmdEl.textContent = 'python experiment_runner.py --phase ' + nextPhase;
+      }
+
+      // Config JSON
+      var config = { decisions: {} };
+      if (state.phase0.decided) {
+        config.decisions['phase_0'] = {
+          anchor_dataset: state.phase0.dataset,
+          anchor_arch: state.phase0.arch
+        };
+      }
+      if (state.phase1.decided) {
+        config.decisions['phase_1'] = {
+          surviving_baselines: Object.keys(state.phase1.baselines).filter(function(k) {
+            return state.phase1.baselines[k];
+          })
+        };
+      }
+      if (state.phase2.decided) {
+        config.decisions['phase_2'] = { factorgraphs_works: state.phase2.works };
+      }
+      if (state.phase3.decided) {
+        config.decisions['phase_3'] = { suppresses_backdoor: state.phase3.works };
+      }
+      if (state.phase5.decided) {
+        config.decisions['phase_5'] = { second_dataset: state.phase5.dataset };
+      }
+
+      document.getElementById('scb-config-text').textContent = JSON.stringify(config, null, 2);
+    }
+
+    // =============================================================
+    // COPY COMMAND HELPER
+    // =============================================================
+    window.copyCmd = function(btn) {
+      var container = btn.parentElement;
+      var span = container.querySelector('span');
+      var text = span ? span.textContent : container.textContent;
+      // Strip the "Copy" button text if accidentally included
+      text = text.replace(/^Copy\s*/, '').trim();
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function() {
+            btn.textContent = 'Copy';
+            btn.classList.remove('copied');
+          }, 1500);
+        });
+      } else {
+        // Fallback
+        var textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try { document.execCommand('copy'); } catch(e) {}
+        document.body.removeChild(textarea);
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(function() {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 1500);
+      }
+    };
+
+
+    // =============================================================
+    // ACC MODE TOGGLE (Final vs Best)
+    // =============================================================
+    window.toggleAccMode = function(phase, mode) {
+      var prefix = 'p' + phase;
+      // Update button styles
+      var finalBtn = document.getElementById(prefix + '-acc-final');
+      var bestBtn = document.getElementById(prefix + '-acc-best');
+      if (mode === 'final') {
+        finalBtn.style.background = 'var(--accent-dim)';
+        finalBtn.style.color = 'var(--accent)';
+        finalBtn.style.fontWeight = '500';
+        bestBtn.style.background = 'var(--bg-elevated)';
+        bestBtn.style.color = 'var(--text-dim)';
+        bestBtn.style.fontWeight = 'normal';
+      } else {
+        bestBtn.style.background = 'var(--accent-dim)';
+        bestBtn.style.color = 'var(--accent)';
+        bestBtn.style.fontWeight = '500';
+        finalBtn.style.background = 'var(--bg-elevated)';
+        finalBtn.style.color = 'var(--text-dim)';
+        finalBtn.style.fontWeight = 'normal';
+      }
+
+      // Phase 0: update grid cells
+      if (phase === 0) {
+        document.querySelectorAll('.p0-acc').forEach(function(el) {
+          el.textContent = el.getAttribute('data-' + mode);
+        });
+        document.querySelectorAll('.p0-delta').forEach(function(el) {
+          el.innerHTML = el.getAttribute('data-' + mode);
+        });
+      }
+
+      // Phase 1: update table cells
+      if (phase === 1) {
+        // .p1-acc is always final; .p1-max is always max. Only deltas toggle
+        // (final-vs-final vs best-vs-best).
+        var updateDelta = function(el) {
+          var val = el.getAttribute('data-' + mode);
+          el.textContent = val;
+          if (val.charAt(0) === '+' && val !== '+0.00pp') {
+            el.style.color = 'var(--accent)';
+            el.style.fontWeight = '500';
+          } else if (val.charAt(0) === '-') {
+            el.style.color = 'var(--red)';
+            el.style.fontWeight = 'normal';
+          } else {
+            el.style.color = 'var(--text-muted)';
+            el.style.fontWeight = 'normal';
+          }
+        };
+        document.querySelectorAll('.p1-grp-delta').forEach(updateDelta);
+        document.querySelectorAll('.p1-fa-delta').forEach(updateDelta);
+        document.querySelectorAll('.p1-base-delta').forEach(updateDelta);
+
+      }
+    };
+    // =============================================================
+    // INIT
+    // =============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+      initPhase0Grid();
+      updateStickyBar();
+    });
+
+  })();
+  </script>
+
+</body>
+</html>

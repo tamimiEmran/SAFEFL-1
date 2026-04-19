@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Byzantine-Robust Federated Learning with Secure Aggregation — AI Hub</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --panel: #ffffff;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --muted: #64748b;
+    --accent: #2563eb;
+
+    --group-a: #2563eb;
+    --group-b: #059669;
+
+    --var: #99f6e4;
+    --var-edge: #0d9488;
+    --var-text: #064e3b;
+
+    --kfac: #fb923c;
+    --kfac-edge: #c2410c;
+
+    --edge: #94a3b8;
+    --edge-strong: #475569;
+    --sum-arrow: #334155;
+
+    --boundary: #cbd5e1;
+
+    --sa-fill: #f8fafc;
+    --sa-stroke: #94a3b8;
+
+    --round-bg: #fafbfc;
+
+    --flag1-fill: #fef2f2;
+    --flag1-stroke: #fca5a5;
+    --flag1-text: #991b1b;
+    --flag0-fill: #f0fdf4;
+    --flag0-stroke: #86efac;
+    --flag0-text: #166534;
+  }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+  .container {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+  }
+  h1 {
+    color: var(--accent);
+    font-size: 22px;
+    margin-bottom: 8px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  h2 {
+    color: var(--accent);
+    font-size: 16px;
+    margin: 0 0 10px 0;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .lede {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 28px;
+    line-height: 1.55;
+    max-width: 920px;
+  }
+  .summary p {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--text);
+    margin: 0 0 12px 0;
+  }
+  .summary p:last-child { margin-bottom: 0; }
+  .summary .meta {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .summary .meta strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 22px;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+  }
+  svg { display: block; margin: 0 auto; max-width: 100%; }
+  .legend {
+    display: flex;
+    gap: 18px;
+    justify-content: center;
+    margin-top: 16px;
+    font-size: 12px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    display: inline-block;
+    border: 1px solid rgba(15,23,42,0.12);
+  }
+  .swatch.circle { border-radius: 50%; }
+  .swatch.scale {
+    width: 64px;
+    background: linear-gradient(to right, #ede9fe, #5b21b6);
+  }
+  .note {
+    margin-top: 18px;
+    padding: 12px 16px;
+    background: #f1f5f9;
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.55;
+  }
+  code {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: var(--accent);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Catching malicious participants in federated AI — without ever seeing their data</h1>
+  <p class="lede">
+    A Byzantine-robust federated learning framework that operates entirely under secure aggregation: the server observes only group-level gradient sums, yet a factor graph with Bayesian inference accumulates coarse round-by-round anomaly signals into sharp per-worker suspicion scores. Privacy is preserved; malicious contributors are still identified and filtered out.
+  </p>
+
+  <div class="panel">
+    <svg viewBox="0 0 1100 480" width="100%" font-family="inherit">
+      <defs>
+        <marker id="arrSum" viewBox="0 0 10 10" refX="8" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+        </marker>
+        <marker id="arrAccent" viewBox="0 0 10 10" refX="8" refY="5"
+                markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+        </marker>
+      </defs>
+
+      <!-- =============================================================== -->
+      <!-- Privacy boundary (drawn once, spans full width)                  -->
+      <!-- Labels sit in the gaps between round panels so they don't clip.  -->
+      <!-- =============================================================== -->
+      <line x1="8" y1="148" x2="1092" y2="148"
+            stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6 5"/>
+      <g font-size="10" font-style="italic" fill="#64748b" text-anchor="middle">
+        <text x="350" y="138">hidden from server</text>
+        <text x="350" y="164">server-visible</text>
+        <text x="750" y="138">hidden from server</text>
+        <text x="750" y="164">server-visible</text>
+      </g>
+
+      <!-- =============================================================== -->
+      <!-- ROUND t-1     groups: A={w1,w2,w3}, B={w4,w5,w6}                -->
+      <!-- =============================================================== -->
+      <g transform="translate(20, 0)">
+        <rect x="0" y="20" width="280" height="450" rx="8"
+              fill="#fafbfc" stroke="#e2e8f0"/>
+        <text x="140" y="42" fill="#2563eb" font-size="13"
+              font-weight="600" text-anchor="middle">round t − 1</text>
+
+        <!-- Secure aggregation box -->
+        <rect x="18" y="56" width="244" height="68" rx="8"
+              fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="4 4"/>
+        <text x="140" y="72" fill="#64748b" font-size="10"
+              text-anchor="middle" font-style="italic">secure aggregation</text>
+
+        <!-- Workers: w1,w2,w3 in group A (blue); w4,w5,w6 in group B (green) -->
+        <g font-size="9" font-weight="600" text-anchor="middle" fill="#fff">
+          <circle cx="45"  cy="103" r="10" fill="#2563eb"/><text x="45"  y="107">w1</text>
+          <circle cx="85"  cy="103" r="10" fill="#2563eb"/><text x="85"  y="107">w2</text>
+          <circle cx="125" cy="103" r="10" fill="#2563eb"/><text x="125" y="107">w3</text>
+          <circle cx="165" cy="103" r="10" fill="#059669"/><text x="165" y="107">w4</text>
+          <circle cx="205" cy="103" r="10" fill="#059669"/><text x="205" y="107">w5</text>
+          <circle cx="245" cy="103" r="10" fill="#059669"/><text x="245" y="107">w6</text>
+        </g>
+
+        <!-- Sum arrows crossing privacy boundary (centered at group-factor x) -->
+        <g stroke="#334155" stroke-width="1.5" fill="none">
+          <line x1="85"  y1="124" x2="85"  y2="172" marker-end="url(#arrSum)"/>
+          <line x1="205" y1="124" x2="205" y2="172" marker-end="url(#arrSum)"/>
+        </g>
+        <text x="62"  y="140" fill="#334155" font-size="10"
+              font-style="italic">group A sum</text>
+        <text x="182" y="140" fill="#334155" font-size="10"
+              font-style="italic">group B sum</text>
+
+        <!-- SignGuard flag badges -->
+        <rect x="60"  y="178" width="50" height="22" rx="11"
+              fill="#fef2f2" stroke="#fca5a5"/>
+        <text x="85" y="193" font-size="10" fill="#991b1b"
+              text-anchor="middle" font-weight="600">anomaly</text>
+        <rect x="180" y="178" width="50" height="22" rx="11"
+              fill="#f0fdf4" stroke="#86efac"/>
+        <text x="205" y="193" font-size="10" fill="#166534"
+              text-anchor="middle" font-weight="600">normal</text>
+
+        <!-- Group factors (squares) -->
+        <rect x="75"  y="222" width="20" height="20" rx="3"
+              fill="#fb923c" stroke="#c2410c"/>
+        <text x="85" y="236" fill="#fff" font-size="10"
+              font-weight="700" text-anchor="middle">A</text>
+        <rect x="195" y="222" width="20" height="20" rx="3"
+              fill="#fb923c" stroke="#c2410c"/>
+        <text x="205" y="236" fill="#fff" font-size="10"
+              font-weight="700" text-anchor="middle">B</text>
+
+        <!-- Edges: f_A → v1,v2,v3   f_B → v4,v5,v6 -->
+        <g stroke="#94a3b8" stroke-width="1" fill="none">
+          <line x1="85"  y1="242" x2="45"  y2="295"/>
+          <line x1="85"  y1="242" x2="85"  y2="295"/>
+          <line x1="85"  y1="242" x2="125" y2="295"/>
+          <line x1="205" y1="242" x2="165" y2="295"/>
+          <line x1="205" y1="242" x2="205" y2="295"/>
+          <line x1="205" y1="242" x2="245" y2="295"/>
+        </g>
+
+        <!-- Variables (circles) -->
+        <g font-size="9" font-weight="600" text-anchor="middle" fill="#064e3b">
+          <circle cx="45"  cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="45"  y="310">w1</text>
+          <circle cx="85"  cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="85"  y="310">w2</text>
+          <circle cx="125" cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="125" y="310">w3</text>
+          <circle cx="165" cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="165" y="310">w4</text>
+          <circle cx="205" cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="205" y="310">w5</text>
+          <circle cx="245" cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="245" y="310">w6</text>
+        </g>
+
+        <text x="140" y="338" fill="#2563eb" font-size="10"
+              text-anchor="middle" font-style="italic">Bayesian inference</text>
+
+        <!-- Marginals heatmap: [.22 .18 .38 .10 .09 .08] -->
+        <g font-size="9" text-anchor="middle" font-family="ui-monospace,monospace">
+          <rect x="32"  y="350" width="26" height="24" rx="3" fill="#ddd6fe" stroke="#c4b5fd"/>
+          <text x="45"  y="366" fill="#4c1d95">.22</text>
+          <rect x="72"  y="350" width="26" height="24" rx="3" fill="#ddd6fe" stroke="#c4b5fd"/>
+          <text x="85"  y="366" fill="#4c1d95">.18</text>
+          <rect x="112" y="350" width="26" height="24" rx="3" fill="#c4b5fd" stroke="#a78bfa"/>
+          <text x="125" y="366" fill="#4c1d95">.38</text>
+          <rect x="152" y="350" width="26" height="24" rx="3" fill="#ede9fe" stroke="#c4b5fd"/>
+          <text x="165" y="366" fill="#4c1d95">.10</text>
+          <rect x="192" y="350" width="26" height="24" rx="3" fill="#ede9fe" stroke="#c4b5fd"/>
+          <text x="205" y="366" fill="#4c1d95">.09</text>
+          <rect x="232" y="350" width="26" height="24" rx="3" fill="#ede9fe" stroke="#c4b5fd"/>
+          <text x="245" y="366" fill="#4c1d95">.08</text>
+        </g>
+        <text x="140" y="394" fill="#64748b" font-size="10"
+              text-anchor="middle">suspicion score per worker</text>
+      </g>
+
+      <!-- ================= INTER-ROUND ARROW:  t-1 → t ================= -->
+      <g>
+        <path d="M 285 362 L 322 362 L 322 428 L 378 428 L 378 306 L 397 306"
+              stroke="#2563eb" stroke-width="1.8" fill="none"
+              marker-end="url(#arrAccent)"/>
+        <text x="350" y="419" fill="#2563eb" font-size="10"
+              text-anchor="middle" font-style="italic">posterior → prior</text>
+      </g>
+
+      <!-- =============================================================== -->
+      <!-- ROUND t       groups: A={w2,w3,w5}, B={w1,w4,w6}                -->
+      <!-- =============================================================== -->
+      <g transform="translate(400, 0)">
+        <rect x="0" y="20" width="280" height="450" rx="8"
+              fill="#fafbfc" stroke="#e2e8f0"/>
+        <text x="140" y="42" fill="#2563eb" font-size="13"
+              font-weight="600" text-anchor="middle">round t</text>
+
+        <rect x="18" y="56" width="244" height="68" rx="8"
+              fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="4 4"/>
+        <text x="140" y="72" fill="#64748b" font-size="10"
+              text-anchor="middle" font-style="italic">secure aggregation</text>
+
+        <!-- Workers reshuffled: A={w2,w3,w5} blue; B={w1,w4,w6} green -->
+        <g font-size="9" font-weight="600" text-anchor="middle" fill="#fff">
+          <circle cx="45"  cy="103" r="10" fill="#059669"/><text x="45"  y="107">w1</text>
+          <circle cx="85"  cy="103" r="10" fill="#2563eb"/><text x="85"  y="107">w2</text>
+          <circle cx="125" cy="103" r="10" fill="#2563eb"/><text x="125" y="107">w3</text>
+          <circle cx="165" cy="103" r="10" fill="#059669"/><text x="165" y="107">w4</text>
+          <circle cx="205" cy="103" r="10" fill="#2563eb"/><text x="205" y="107">w5</text>
+          <circle cx="245" cy="103" r="10" fill="#059669"/><text x="245" y="107">w6</text>
+        </g>
+
+        <g stroke="#334155" stroke-width="1.5" fill="none">
+          <line x1="85"  y1="124" x2="85"  y2="172" marker-end="url(#arrSum)"/>
+          <line x1="205" y1="124" x2="205" y2="172" marker-end="url(#arrSum)"/>
+        </g>
+        <text x="62"  y="140" fill="#334155" font-size="10"
+              font-style="italic">group A sum</text>
+        <text x="182" y="140" fill="#334155" font-size="10"
+              font-style="italic">group B sum</text>
+
+        <rect x="60"  y="178" width="50" height="22" rx="11"
+              fill="#fef2f2" stroke="#fca5a5"/>
+        <text x="85" y="193" font-size="10" fill="#991b1b"
+              text-anchor="middle" font-weight="600">anomaly</text>
+        <rect x="180" y="178" width="50" height="22" rx="11"
+              fill="#f0fdf4" stroke="#86efac"/>
+        <text x="205" y="193" font-size="10" fill="#166534"
+              text-anchor="middle" font-weight="600">normal</text>
+
+        <rect x="75"  y="222" width="20" height="20" rx="3"
+              fill="#fb923c" stroke="#c2410c"/>
+        <text x="85" y="236" fill="#fff" font-size="10"
+              font-weight="700" text-anchor="middle">A</text>
+        <rect x="195" y="222" width="20" height="20" rx="3"
+              fill="#fb923c" stroke="#c2410c"/>
+        <text x="205" y="236" fill="#fff" font-size="10"
+              font-weight="700" text-anchor="middle">B</text>
+
+        <!-- Edges: f_A → v2,v3,v5   f_B → v1,v4,v6 -->
+        <g stroke="#94a3b8" stroke-width="1" fill="none">
+          <line x1="85"  y1="242" x2="85"  y2="295"/>
+          <line x1="85"  y1="242" x2="125" y2="295"/>
+          <line x1="85"  y1="242" x2="205" y2="295"/>
+          <line x1="205" y1="242" x2="45"  y2="295"/>
+          <line x1="205" y1="242" x2="165" y2="295"/>
+          <line x1="205" y1="242" x2="245" y2="295"/>
+        </g>
+
+        <g font-size="9" font-weight="600" text-anchor="middle" fill="#064e3b">
+          <circle cx="45"  cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="45"  y="310">w1</text>
+          <circle cx="85"  cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="85"  y="310">w2</text>
+          <circle cx="125" cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="125" y="310">w3</text>
+          <circle cx="165" cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="165" y="310">w4</text>
+          <circle cx="205" cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="205" y="310">w5</text>
+          <circle cx="245" cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="245" y="310">w6</text>
+        </g>
+
+        <text x="140" y="338" fill="#2563eb" font-size="10"
+              text-anchor="middle" font-style="italic">Bayesian inference</text>
+
+        <!-- Marginals: [.08 .32 .65 .07 .28 .06]  (w3 climbs) -->
+        <g font-size="9" text-anchor="middle" font-family="ui-monospace,monospace">
+          <rect x="32"  y="350" width="26" height="24" rx="3" fill="#ede9fe" stroke="#c4b5fd"/>
+          <text x="45"  y="366" fill="#4c1d95">.08</text>
+          <rect x="72"  y="350" width="26" height="24" rx="3" fill="#c4b5fd" stroke="#a78bfa"/>
+          <text x="85"  y="366" fill="#4c1d95">.32</text>
+          <rect x="112" y="350" width="26" height="24" rx="3" fill="#a78bfa" stroke="#7c3aed"/>
+          <text x="125" y="366" fill="#ffffff">.65</text>
+          <rect x="152" y="350" width="26" height="24" rx="3" fill="#ede9fe" stroke="#c4b5fd"/>
+          <text x="165" y="366" fill="#4c1d95">.07</text>
+          <rect x="192" y="350" width="26" height="24" rx="3" fill="#ddd6fe" stroke="#c4b5fd"/>
+          <text x="205" y="366" fill="#4c1d95">.28</text>
+          <rect x="232" y="350" width="26" height="24" rx="3" fill="#ede9fe" stroke="#c4b5fd"/>
+          <text x="245" y="366" fill="#4c1d95">.06</text>
+        </g>
+        <text x="140" y="394" fill="#64748b" font-size="10"
+              text-anchor="middle">suspicion score per worker</text>
+      </g>
+
+      <!-- ================= INTER-ROUND ARROW:  t → t+1 ================== -->
+      <g>
+        <path d="M 665 362 L 722 362 L 722 428 L 778 428 L 778 306 L 797 306"
+              stroke="#2563eb" stroke-width="1.8" fill="none"
+              marker-end="url(#arrAccent)"/>
+        <text x="750" y="419" fill="#2563eb" font-size="10"
+              text-anchor="middle" font-style="italic">posterior → prior</text>
+      </g>
+
+      <!-- =============================================================== -->
+      <!-- ROUND t+1     groups: A={w3,w4,w6}, B={w1,w2,w5}                -->
+      <!-- =============================================================== -->
+      <g transform="translate(800, 0)">
+        <rect x="0" y="20" width="280" height="450" rx="8"
+              fill="#fafbfc" stroke="#e2e8f0"/>
+        <text x="140" y="42" fill="#2563eb" font-size="13"
+              font-weight="600" text-anchor="middle">round t + 1</text>
+
+        <rect x="18" y="56" width="244" height="68" rx="8"
+              fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="4 4"/>
+        <text x="140" y="72" fill="#64748b" font-size="10"
+              text-anchor="middle" font-style="italic">secure aggregation</text>
+
+        <!-- A={w3,w4,w6} blue; B={w1,w2,w5} green -->
+        <g font-size="9" font-weight="600" text-anchor="middle" fill="#fff">
+          <circle cx="45"  cy="103" r="10" fill="#059669"/><text x="45"  y="107">w1</text>
+          <circle cx="85"  cy="103" r="10" fill="#059669"/><text x="85"  y="107">w2</text>
+          <circle cx="125" cy="103" r="10" fill="#2563eb"/><text x="125" y="107">w3</text>
+          <circle cx="165" cy="103" r="10" fill="#2563eb"/><text x="165" y="107">w4</text>
+          <circle cx="205" cy="103" r="10" fill="#059669"/><text x="205" y="107">w5</text>
+          <circle cx="245" cy="103" r="10" fill="#2563eb"/><text x="245" y="107">w6</text>
+        </g>
+
+        <g stroke="#334155" stroke-width="1.5" fill="none">
+          <line x1="85"  y1="124" x2="85"  y2="172" marker-end="url(#arrSum)"/>
+          <line x1="205" y1="124" x2="205" y2="172" marker-end="url(#arrSum)"/>
+        </g>
+        <text x="62"  y="140" fill="#334155" font-size="10"
+              font-style="italic">group A sum</text>
+        <text x="182" y="140" fill="#334155" font-size="10"
+              font-style="italic">group B sum</text>
+
+        <rect x="60"  y="178" width="50" height="22" rx="11"
+              fill="#fef2f2" stroke="#fca5a5"/>
+        <text x="85" y="193" font-size="10" fill="#991b1b"
+              text-anchor="middle" font-weight="600">anomaly</text>
+        <rect x="180" y="178" width="50" height="22" rx="11"
+              fill="#f0fdf4" stroke="#86efac"/>
+        <text x="205" y="193" font-size="10" fill="#166534"
+              text-anchor="middle" font-weight="600">normal</text>
+
+        <rect x="75"  y="222" width="20" height="20" rx="3"
+              fill="#fb923c" stroke="#c2410c"/>
+        <text x="85" y="236" fill="#fff" font-size="10"
+              font-weight="700" text-anchor="middle">A</text>
+        <rect x="195" y="222" width="20" height="20" rx="3"
+              fill="#fb923c" stroke="#c2410c"/>
+        <text x="205" y="236" fill="#fff" font-size="10"
+              font-weight="700" text-anchor="middle">B</text>
+
+        <!-- Edges: f_A → v3,v4,v6   f_B → v1,v2,v5 -->
+        <g stroke="#94a3b8" stroke-width="1" fill="none">
+          <line x1="85"  y1="242" x2="125" y2="295"/>
+          <line x1="85"  y1="242" x2="165" y2="295"/>
+          <line x1="85"  y1="242" x2="245" y2="295"/>
+          <line x1="205" y1="242" x2="45"  y2="295"/>
+          <line x1="205" y1="242" x2="85"  y2="295"/>
+          <line x1="205" y1="242" x2="205" y2="295"/>
+        </g>
+
+        <g font-size="9" font-weight="600" text-anchor="middle" fill="#064e3b">
+          <circle cx="45"  cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="45"  y="310">w1</text>
+          <circle cx="85"  cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="85"  y="310">w2</text>
+          <circle cx="125" cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="125" y="310">w3</text>
+          <circle cx="165" cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="165" y="310">w4</text>
+          <circle cx="205" cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="205" y="310">w5</text>
+          <circle cx="245" cy="306" r="11" fill="#99f6e4" stroke="#0d9488"/><text x="245" y="310">w6</text>
+        </g>
+
+        <text x="140" y="338" fill="#2563eb" font-size="10"
+              text-anchor="middle" font-style="italic">Bayesian inference</text>
+
+        <!-- Marginals: [.12 .18 .88 .22 .15 .20]  (w3 now clearly flagged) -->
+        <g font-size="9" text-anchor="middle" font-family="ui-monospace,monospace">
+          <rect x="32"  y="350" width="26" height="24" rx="3" fill="#ede9fe" stroke="#c4b5fd"/>
+          <text x="45"  y="366" fill="#4c1d95">.12</text>
+          <rect x="72"  y="350" width="26" height="24" rx="3" fill="#ddd6fe" stroke="#c4b5fd"/>
+          <text x="85"  y="366" fill="#4c1d95">.18</text>
+          <rect x="112" y="350" width="26" height="24" rx="3" fill="#5b21b6" stroke="#4c1d95"/>
+          <text x="125" y="366" fill="#ffffff">.88</text>
+          <rect x="152" y="350" width="26" height="24" rx="3" fill="#ddd6fe" stroke="#c4b5fd"/>
+          <text x="165" y="366" fill="#4c1d95">.22</text>
+          <rect x="192" y="350" width="26" height="24" rx="3" fill="#ddd6fe" stroke="#c4b5fd"/>
+          <text x="205" y="366" fill="#4c1d95">.15</text>
+          <rect x="232" y="350" width="26" height="24" rx="3" fill="#ddd6fe" stroke="#c4b5fd"/>
+          <text x="245" y="366" fill="#4c1d95">.20</text>
+        </g>
+        <text x="140" y="394" fill="#64748b" font-size="10"
+              text-anchor="middle">suspicion score per worker</text>
+      </g>
+    </svg>
+
+    <div class="legend">
+      <span><span class="swatch circle" style="background:#2563eb"></span>participant in group A</span>
+      <span><span class="swatch circle" style="background:#059669"></span>participant in group B</span>
+      <span><span class="swatch" style="background:#fb923c"></span>group-level observation</span>
+      <span><span class="swatch circle" style="background:#99f6e4;border-color:#0d9488"></span>participant belief</span>
+      <span><span class="swatch scale"></span>suspicion score: low → high</span>
+    </div>
+
+    <div class="note">
+      <b>How the picture reads.</b> Each round, the six participants are randomly split into two groups. Secure aggregation combines everyone's contributions inside each group, and only the group-level sum is released to the server — individual contributions stay private. The server runs a simple anomaly check on each group sum, producing a single coarse verdict: <i>anomaly</i> or <i>normal</i>. A factor graph ties those verdicts back to the specific participants who were in each group, and Bayesian inference turns the pattern of anomalies, across many rounds of random regrouping, into a per-participant suspicion score. In the story shown, <b>w3</b> is the bad actor: it keeps landing in groups flagged as anomalous, so its score climbs steadily from <code>.38</code> to <code>.65</code> to <code>.88</code> while the other five fluctuate in the low range. The posterior at the end of each round carries forward as the prior for the next, letting faint round-level signals compound into confident identification — all without ever looking behind the privacy curtain.
+    </div>
+  </div>
+
+  <div class="panel summary">
+    <h2>Project summary (for AI Hub submission)</h2>
+    <p>
+      Modern AI increasingly depends on data scattered across hospitals, banks, and personal devices — data that privacy laws, regulation, and competition keep from ever being pooled. <b>Federated Learning</b> lets these parties train a shared model together without exchanging their raw data, and <b>secure aggregation</b> hides even each participant's individual contribution from the server.
+    </p>
+    <p>
+      But privacy creates a new problem: if no one can see a participant's contribution, how do we catch one that is secretly trying to corrupt the model?
+    </p>
+    <p>
+      This project develops a <b>Byzantine-robust federated learning framework</b> that operates entirely under secure aggregation. Using a probabilistic graphical model — a factor graph — the system accumulates coarse, group-level anomaly signals across many training rounds, and Bayesian inference narrows suspicion toward specific bad actors. Malicious participants are identified and filtered out while the strong privacy guarantees of secure aggregation stay intact. Running on the university's <b>Google AI Hub</b> GPU resources, the framework scales to hundreds of clients and thousands of training rounds — the regime where robust, privacy-preserving AI training becomes practical for real-world deployments in clinical, financial, and cross-jurisdictional settings.
+    </p>
+    <div class="meta">
+      <span><strong>Project:</strong> SAFEFL — Private and Robust Federated Learning</span>
+      <span><strong>Compute:</strong> Google AI Hub (GPU)</span>
+      <span><strong>Keywords:</strong> federated learning · secure aggregation · Byzantine robustness · Bayesian inference · factor graphs</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>
